@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CheckCircle2, CreditCard, Lock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -55,8 +54,8 @@ export function CheckoutBuilder({
       alojamiento: accommodation,
       seguro: guardMe ? "1" : "0",
     });
-    return `?${params.toString()}`;
-  }, [weeks, accommodation, guardMe]);
+    return `/courses/${school.slug}?${params.toString()}`;
+  }, [school.slug, weeks, accommodation, guardMe]);
 
   if (reserved) {
     return (
@@ -80,13 +79,13 @@ export function CheckoutBuilder({
               <span className="font-semibold text-ink">{formatUsd(pricing.total)}</span>
             </div>
           </div>
-          <Link
+          <a
             href={`/courses/${school.slug}`}
             className={cn(buttonVariants({ variant: "outline" }), "w-full")}
             data-testid="edit-booking"
           >
             Editar detalles de la reserva
-          </Link>
+          </a>
         </div>
       </div>
     );
@@ -184,9 +183,8 @@ export function CheckoutBuilder({
           </div>
         </div>
 
-        <Link
+        <a
           href={confirmHref}
-          scroll={false}
           data-testid="book-now"
           className={cn(
             buttonVariants({ size: "lg" }),
@@ -195,7 +193,7 @@ export function CheckoutBuilder({
         >
           <CreditCard className="size-4" />
           Reservar ahora con tarjeta
-        </Link>
+        </a>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <Lock className="size-3.5" />
