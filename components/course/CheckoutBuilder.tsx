@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { CheckCircle2, CreditCard, Lock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -14,6 +14,7 @@ import {
   formatUsd,
 } from "@/lib/pricing";
 import type { AccommodationType, DurationWeeks, School } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 interface CheckoutBuilderProps {
   school: School;
@@ -63,13 +64,13 @@ export function CheckoutBuilder({
               <span className="font-semibold text-ink">{formatUsd(pricing.total)}</span>
             </div>
           </div>
-          <Button
-            variant="outline"
-            className="w-full"
+          <button
+            type="button"
+            className={cn(buttonVariants({ variant: "outline" }), "w-full")}
             onClick={() => setConfirmed(false)}
           >
             Editar detalles de la reserva
-          </Button>
+          </button>
         </div>
       </div>
     );
@@ -167,14 +168,18 @@ export function CheckoutBuilder({
           </div>
         </div>
 
-        <Button
-          size="lg"
-          className="h-12 w-full gap-2 border-0 text-ink gradient-cta hover:opacity-95"
+        <button
+          type="button"
+          data-testid="book-now"
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            "h-12 w-full cursor-pointer gap-2 border-0 text-ink gradient-cta hover:opacity-95"
+          )}
           onClick={() => setConfirmed(true)}
         >
           <CreditCard className="size-4" />
           Reservar ahora con tarjeta
-        </Button>
+        </button>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <Lock className="size-3.5" />
