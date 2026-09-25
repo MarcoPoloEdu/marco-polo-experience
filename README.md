@@ -27,7 +27,16 @@ UI en español, catálogo estático, precio en vivo y confirmación de reserva (
 
 ```bash
 npm install
-npm run dev -- -p 4317 -H 0.0.0.0
+npm run build
+npm start
 ```
 
 Abre [http://127.0.0.1:4317](http://127.0.0.1:4317).
+
+Para desarrollo con hot reload (Webpack):
+
+```bash
+npm run dev
+```
+
+> En este entorno, `next start` (producción) es más fiable para interacciones del checkout que Turbopack HMR.
