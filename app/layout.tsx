@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Manrope, Syne } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const syne = Syne({
+  variable: "--font-syne",
   subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "FastEdu — Visa-free language courses",
-    template: "%s · FastEdu",
+    default: "Marco Polo Experience — Cursos de idiomas en el exterior",
+    template: "%s · Marco Polo Experience",
   },
   description:
-    "Book short language courses in Berlin, Valletta, and London. Built for US passport holders with instant pricing and zero consular visa friction.",
+    "Empresa hermana de Marco Polo Education. Reserva cursos cortos de idiomas en Berlín, La Valeta y Londres con precio transparente.",
 };
 
 export default function RootLayout({
@@ -28,10 +29,10 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="es"
+      className={`${syne.variable} ${manrope.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-white text-foreground">
+      <body className="flex min-h-full flex-col bg-background text-foreground">
         {children}
       </body>
     </html>

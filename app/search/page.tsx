@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { SearchResults } from "@/components/search/SearchResults";
+import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 import {
   LANGUAGE_OPTIONS,
   PASSPORT_OPTIONS,
@@ -28,22 +28,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   )?.label;
 
   return (
-    <main className="flex-1 bg-white">
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-primary">
-            FastEdu
-          </Link>
-          <Link href="/" className="text-sm font-medium text-muted-foreground hover:text-primary">
-            New search
-          </Link>
-        </div>
-      </header>
+    <main className="flex-1">
+      <SiteHeader />
       <SearchResults
         schools={schools}
         languageLabel={languageLabel}
         passportLabel={passportLabel}
       />
+      <SiteFooter />
     </main>
   );
 }

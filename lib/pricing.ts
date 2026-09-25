@@ -14,9 +14,9 @@ export const DURATION_OPTIONS: {
   label: string;
   monthsLabel: string;
 }[] = [
-  { weeks: 4, label: "4 weeks", monthsLabel: "1 month" },
-  { weeks: 8, label: "8 weeks", monthsLabel: "2 months" },
-  { weeks: 12, label: "12 weeks", monthsLabel: "3 months" },
+  { weeks: 4, label: "4 semanas", monthsLabel: "1 mes" },
+  { weeks: 8, label: "8 semanas", monthsLabel: "2 meses" },
+  { weeks: 12, label: "12 semanas", monthsLabel: "3 meses" },
 ];
 
 export function accommodationRate(type: AccommodationType): number {
@@ -43,7 +43,7 @@ export function calculatePricing({
 }
 
 export function formatUsd(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("es-CO", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,

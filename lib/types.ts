@@ -1,4 +1,11 @@
-export type PassportCode = "USA" | "CAN" | "GBR" | "AUS";
+export type PassportCode =
+  | "COL"
+  | "MEX"
+  | "PER"
+  | "CHL"
+  | "ARG"
+  | "ESP"
+  | "USA";
 
 export type LanguageCode =
   | "german"

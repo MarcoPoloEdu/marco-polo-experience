@@ -20,30 +20,34 @@ export function SearchResults({
 
   const countLabel = useMemo(() => {
     const n = schools.length;
-    return `${n} school${n === 1 ? "" : "s"}`;
+    return `${n} escuela${n === 1 ? "" : "s"}`;
   }, [schools.length]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-10 sm:px-6 sm:py-12">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Visa-free language courses
+        <p className="text-sm font-semibold tracking-[0.16em] text-indigo uppercase">
+          Resultados
+        </p>
+        <h1 className="font-heading text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+          Cursos de idioma listos para reservar
         </h1>
         <p className="text-muted-foreground">
           {countLabel}
-          {languageLabel ? ` for ${languageLabel}` : ""}
-          {passportLabel ? ` · Passport: ${passportLabel}` : ""}
+          {languageLabel ? ` de ${languageLabel}` : ""}
+          {passportLabel ? ` · Pasaporte: ${passportLabel}` : ""}
         </p>
       </div>
 
       <DurationFilter value={weeks} onChange={setWeeks} />
 
       {schools.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/30 px-6 py-16 text-center">
-          <p className="font-medium text-foreground">No schools match this search</p>
+        <div className="rounded-[1.4rem] border border-dashed border-border bg-white px-6 py-16 text-center">
+          <p className="font-heading text-lg font-semibold text-ink">
+            No hay escuelas para esta búsqueda
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Try another language from the homepage—Berlin, Valletta, and London
-            are our featured hubs.
+            Prueba otro idioma desde el inicio — Berlín, La Valeta y Londres son nuestros hubs destacados.
           </p>
         </div>
       ) : (

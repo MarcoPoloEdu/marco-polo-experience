@@ -3,34 +3,38 @@ import { BadgeCheck, CircleDollarSign, ShieldCheck } from "lucide-react";
 const badges = [
   {
     icon: ShieldCheck,
-    title: "100% Money-Back Guarantee",
-    description: "Cancel before your start date for a full tuition refund.",
+    title: "Garantía 100% de devolución",
+    description: "Cancela antes de tu fecha de inicio y recupera tu matrícula.",
   },
   {
     icon: CircleDollarSign,
-    title: "Low Price Guarantee",
-    description: "Find a lower published rate and we refund the difference within 48h.",
+    title: "Garantía de mejor precio",
+    description: "Si encuentras una tarifa publicada más baja, te devolvemos la diferencia en 48h.",
   },
   {
     icon: BadgeCheck,
-    title: "Zero Visa Required",
-    description: "Destinations where US passport holders travel without a consular visa.",
+    title: "Rutas con menos fricción",
+    description: "Destinos pensados para latinos que quieren empezar rápido su experiencia.",
   },
 ];
 
 export function TrustBadges() {
   return (
-    <section className="border-b border-border bg-white">
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-10 sm:grid-cols-3 sm:px-6 sm:py-12">
-        {badges.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="flex gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40 text-primary">
-              <Icon className="size-5" />
+    <section className="relative z-10 -mt-8">
+      <div className="mx-auto grid max-w-6xl gap-3 px-4 sm:grid-cols-3 sm:px-6">
+        {badges.map(({ icon: Icon, title, description }, index) => (
+          <div
+            key={title}
+            className="rounded-2xl border border-border bg-white p-5 shadow-[0_20px_50px_-28px_rgba(38,38,59,0.45)]"
+            style={{ animationDelay: `${index * 80}ms` }}
+          >
+            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-mint/15 text-ink">
+              <Icon className="size-5 text-[#029a61]" />
             </div>
-            <div>
-              <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-            </div>
+            <h2 className="font-heading text-base font-semibold text-ink">{title}</h2>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              {description}
+            </p>
           </div>
         ))}
       </div>

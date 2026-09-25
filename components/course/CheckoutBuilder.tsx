@@ -43,27 +43,32 @@ export function CheckoutBuilder({
 
   if (confirmed) {
     return (
-      <div className="rounded-xl border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
+      <div className="rounded-[1.4rem] border border-border bg-white p-6 shadow-[0_24px_60px_-36px_rgba(38,38,59,0.55)] lg:sticky lg:top-6">
         <div className="flex flex-col items-start gap-3">
-          <div className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <CheckCircle2 className="size-6" />
+          <div className="flex size-12 items-center justify-center rounded-full bg-mint/20 text-ink">
+            <CheckCircle2 className="size-6 text-[#029a61]" />
           </div>
-          <h2 className="text-xl font-semibold text-foreground">
-            Booking confirmed
+          <h2 className="font-heading text-2xl font-semibold text-ink">
+            ¡Reserva confirmada!
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Your place at <span className="font-medium text-foreground">{school.name}</span>{" "}
-            is reserved for {weeks} weeks. A confirmation email would go out next—
-            this MVP shows confirmation only (no live Stripe charge).
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Tu cupo en{" "}
+            <span className="font-semibold text-ink">{school.name}</span> quedó
+            reservado por {weeks} semanas. En la versión final te enviamos el correo —
+            este MVP solo muestra la confirmación (sin cobro real con Stripe).
           </p>
-          <div className="w-full rounded-lg border border-border bg-muted/40 p-3 text-sm">
+          <div className="w-full rounded-xl border border-border bg-muted/50 p-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total secured</span>
-              <span className="font-semibold">{formatUsd(pricing.total)}</span>
+              <span className="text-muted-foreground">Total asegurado</span>
+              <span className="font-semibold text-ink">{formatUsd(pricing.total)}</span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" onClick={() => setConfirmed(false)}>
-            Edit booking details
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setConfirmed(false)}
+          >
+            Editar detalles de la reserva
           </Button>
         </div>
       </div>
@@ -71,18 +76,18 @@ export function CheckoutBuilder({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-white p-5 shadow-sm lg:sticky lg:top-6">
-      <div className="mb-4">
-        <p className="text-sm text-muted-foreground">From</p>
-        <p className="text-2xl font-semibold text-foreground">
+    <div className="rounded-[1.4rem] border border-border bg-white p-6 shadow-[0_24px_60px_-36px_rgba(38,38,59,0.55)] lg:sticky lg:top-6">
+      <div className="mb-5">
+        <p className="text-sm text-muted-foreground">Desde</p>
+        <p className="font-heading text-3xl font-semibold text-ink">
           {formatUsd(school.weeklyPrice)}
-          <span className="text-sm font-normal text-muted-foreground"> / week</span>
+          <span className="text-sm font-normal text-muted-foreground"> / semana</span>
         </p>
       </div>
 
       <div className="space-y-5">
         <div className="space-y-2">
-          <p className="text-sm font-medium">Duration</p>
+          <p className="text-sm font-semibold text-ink">Duración</p>
           <RadioGroup
             value={String(weeks)}
             onValueChange={(v) => setWeeks(Number(v) as DurationWeeks)}
@@ -91,7 +96,7 @@ export function CheckoutBuilder({
             {DURATION_OPTIONS.map((opt) => (
               <label
                 key={opt.weeks}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/5"
+                className="flex cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2.5 transition has-[[data-checked]]:border-mint has-[[data-checked]]:bg-mint/10"
               >
                 <RadioGroupItem value={String(opt.weeks)} />
                 <span className="text-sm">
@@ -106,59 +111,57 @@ export function CheckoutBuilder({
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-medium">Accommodation</p>
+          <p className="text-sm font-semibold text-ink">Alojamiento</p>
           <RadioGroup
             value={accommodation}
             onValueChange={(v) => setAccommodation(v as AccommodationType)}
             className="gap-2"
           >
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/5">
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 has-[[data-checked]]:border-mint has-[[data-checked]]:bg-mint/10">
               <span className="flex items-center gap-3">
                 <RadioGroupItem value="homestay" />
-                <span className="text-sm">Homestay</span>
+                <span className="text-sm">Homestay / Familia</span>
               </span>
               <span className="text-sm text-muted-foreground">
-                +{formatUsd(HOMESTAY_PER_WEEK)}/wk
+                +{formatUsd(HOMESTAY_PER_WEEK)}/sem
               </span>
             </label>
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/5">
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3 py-2.5 has-[[data-checked]]:border-mint has-[[data-checked]]:bg-mint/10">
               <span className="flex items-center gap-3">
                 <RadioGroupItem value="residence" />
-                <span className="text-sm">Student Residence</span>
+                <span className="text-sm">Residencia estudiantil</span>
               </span>
               <span className="text-sm text-muted-foreground">
-                +{formatUsd(RESIDENCE_PER_WEEK)}/wk
+                +{formatUsd(RESIDENCE_PER_WEEK)}/sem
               </span>
             </label>
           </RadioGroup>
         </div>
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-3">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-border px-3 py-3">
           <div>
-            <p className="text-sm font-medium">Guard.me Global Coverage</p>
+            <p className="text-sm font-semibold text-ink">Guard.me Global Coverage</p>
             <p className="text-xs text-muted-foreground">
-              Flat {formatUsd(GUARD_ME_FLAT)} medical & travel insurance
+              Seguro médico y de viaje por {formatUsd(GUARD_ME_FLAT)} fijos
             </p>
           </div>
           <Switch checked={guardMe} onCheckedChange={setGuardMe} />
         </div>
 
-        <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+        <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">
-              Tuition ({weeks} weeks)
-            </span>
+            <span className="text-muted-foreground">Curso ({weeks} semanas)</span>
             <span>{formatUsd(pricing.courseTotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Accommodation</span>
+            <span className="text-muted-foreground">Alojamiento</span>
             <span>{formatUsd(pricing.accommodationTotal)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Guard.me</span>
             <span>{formatUsd(pricing.insuranceTotal)}</span>
           </div>
-          <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
+          <div className="flex justify-between border-t border-border pt-2 font-heading text-base font-semibold text-ink">
             <span>Total</span>
             <span>{formatUsd(pricing.total)}</span>
           </div>
@@ -166,16 +169,16 @@ export function CheckoutBuilder({
 
         <Button
           size="lg"
-          className="h-11 w-full gap-2"
+          className="h-12 w-full gap-2 border-0 text-ink gradient-cta hover:opacity-95"
           onClick={() => setConfirmed(true)}
         >
           <CreditCard className="size-4" />
-          Book Now with Credit Card
+          Reservar ahora con tarjeta
         </Button>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <Lock className="size-3.5" />
-          Secure payment powered by Stripe
+          Pago seguro impulsado por Stripe
         </p>
       </div>
     </div>

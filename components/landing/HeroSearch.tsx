@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { ArrowUpRight, Search } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Select,
@@ -19,8 +19,8 @@ import type { LanguageCode, PassportCode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export function HeroSearch() {
-  const [passport, setPassport] = useState<PassportCode>("USA");
-  const [language, setLanguage] = useState<LanguageCode>("german");
+  const [passport, setPassport] = useState<PassportCode>("COL");
+  const [language, setLanguage] = useState<LanguageCode>("english");
 
   const searchHref = useMemo(() => {
     const params = new URLSearchParams({ passport, language });
@@ -37,34 +37,44 @@ export function HeroSearch() {
   );
 
   return (
-    <section className="relative overflow-hidden border-b border-border bg-white">
+    <section className="relative min-h-[92vh] overflow-hidden bg-ink text-white">
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        className="absolute inset-0 animate-drift bg-cover bg-center"
         style={{
           backgroundImage:
-            "radial-gradient(circle at 20% 20%, #0066ff 0%, transparent 45%), radial-gradient(circle at 80% 0%, #00a3ff 0%, transparent 40%)",
+            "url(https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2000&q=80)",
         }}
       />
-      <div className="relative mx-auto flex max-w-5xl flex-col gap-8 px-4 py-14 sm:px-6 sm:py-20">
-        <div className="max-w-2xl space-y-3">
-          <p className="text-sm font-semibold tracking-wide text-primary">
-            FastEdu
+      <div className="absolute inset-0 bg-gradient-to-b from-ink/75 via-ink/70 to-ink" />
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 15% 20%, rgba(3,206,129,0.35), transparent 35%), radial-gradient(circle at 85% 10%, rgba(77,101,255,0.35), transparent 40%)",
+        }}
+      />
+
+      <div className="relative mx-auto flex min-h-[92vh] max-w-6xl flex-col justify-end gap-10 px-4 pb-14 pt-28 sm:px-6 sm:pb-20">
+        <div className="max-w-3xl space-y-5">
+          <p className="animate-rise text-sm font-semibold tracking-[0.2em] text-mint uppercase">
+            Marco Polo Experience
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-            Book visa-free language courses in minutes
+          <h1 className="animate-rise-delay-1 font-heading text-4xl leading-[1.05] font-semibold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            Vive el idioma.
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-mint via-sky-300 to-indigo">
+              Reserva tu aventura.
+            </span>
           </h1>
-          <p className="max-w-xl text-base text-muted-foreground sm:text-lg">
-            Compare trusted schools in Berlin, Valletta, and London—built for
-            US passport holders who want clear prices and zero consular delay.
+          <p className="animate-rise-delay-2 max-w-xl text-base text-white/75 sm:text-lg">
+            Cursos cortos en destinos icónicos —con precio al instante— para latinos
+            que quieren viajar, estudiar y sentirse Polers desde el día uno.
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-white p-4 shadow-sm sm:p-5">
+        <div className="animate-rise-delay-2 rounded-2xl border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-5">
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Passport
-              </label>
+              <label className="text-xs font-medium text-white/70">Pasaporte</label>
               <Select
                 value={passport}
                 onValueChange={(v) => {
@@ -72,8 +82,8 @@ export function HeroSearch() {
                 }}
                 items={passportItems}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select passport" />
+                <SelectTrigger className="w-full border-white/20 bg-white/95 text-ink">
+                  <SelectValue placeholder="Elige tu país" />
                 </SelectTrigger>
                 <SelectContent>
                   {PASSPORT_OPTIONS.map((opt) => (
@@ -86,9 +96,7 @@ export function HeroSearch() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Language
-              </label>
+              <label className="text-xs font-medium text-white/70">Idioma</label>
               <Select
                 value={language}
                 onValueChange={(v) => {
@@ -96,8 +104,8 @@ export function HeroSearch() {
                 }}
                 items={languageItems}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select language" />
+                <SelectTrigger className="w-full border-white/20 bg-white/95 text-ink">
+                  <SelectValue placeholder="Elige el idioma" />
                 </SelectTrigger>
                 <SelectContent>
                   {LANGUAGE_OPTIONS.map((opt) => (
@@ -114,11 +122,13 @@ export function HeroSearch() {
                 href={searchHref}
                 className={cn(
                   buttonVariants({ size: "lg" }),
-                  "h-9 w-full gap-2 px-5 sm:w-auto"
+                  "h-10 w-full gap-2 border-0 px-5 text-ink sm:w-auto",
+                  "gradient-cta hover:opacity-95"
                 )}
               >
                 <Search className="size-4" />
-                Search Destinations
+                Buscar destinos
+                <ArrowUpRight className="size-4" />
               </Link>
             </div>
           </div>
