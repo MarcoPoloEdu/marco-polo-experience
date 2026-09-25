@@ -47,15 +47,12 @@ export function CheckoutBuilder({
     [school.weeklyPrice, weeks, accommodation, guardMe]
   );
 
-  const confirmHref = useMemo(() => {
-    const params = new URLSearchParams({
-      reservado: "1",
-      semanas: String(weeks),
-      alojamiento: accommodation,
-      seguro: guardMe ? "1" : "0",
-    });
-    return `/courses/${school.slug}?${params.toString()}`;
-  }, [school.slug, weeks, accommodation, guardMe]);
+  const confirmHref = `/courses/${school.slug}?${new URLSearchParams({
+    reservado: "1",
+    semanas: String(weeks),
+    alojamiento: accommodation,
+    seguro: guardMe ? "1" : "0",
+  }).toString()}`;
 
   if (reserved) {
     return (
