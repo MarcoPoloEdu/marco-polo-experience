@@ -13,10 +13,10 @@ export function FeaturedDestinations() {
               Destinos destacados
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-              Elige tu próxima ciudad Poler
+              Elige tu próxima ciudad
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Berlín, La Valeta y Londres — hubs de idioma listos para tu primera experiencia.
+              Berlín, La Valeta y Londres: destinos para estudiar el idioma donde se vive todos los días.
             </p>
           </div>
           <a

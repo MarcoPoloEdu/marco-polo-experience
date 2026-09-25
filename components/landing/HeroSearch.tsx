@@ -60,14 +60,14 @@ export function HeroSearch() {
             Marco Polo Experience
           </p>
           <h1 className="animate-rise-delay-1 font-heading text-4xl leading-[1.05] font-semibold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-            Vive el idioma.
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-mint via-sky-300 to-indigo">
-              Reserva tu aventura.
+            No se trata solo de aprender un idioma.
+            <span className="mt-2 block text-transparent bg-clip-text bg-gradient-to-r from-mint via-sky-300 to-indigo">
+              Se trata de vivirlo.
             </span>
           </h1>
           <p className="animate-rise-delay-2 max-w-xl text-base text-white/75 sm:text-lg">
-            Cursos cortos en destinos icónicos —con precio al instante— para latinos
-            que quieren viajar, estudiar y sentirse Polers desde el día uno.
+            Cursos cortos en ciudades icónicas, con precio claro desde el primer clic.
+            Para latinos listos a estudiar, viajar y hacer del idioma parte de su vida.
           </p>
         </div>
 

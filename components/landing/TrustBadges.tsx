@@ -14,7 +14,7 @@ const badges = [
   {
     icon: BadgeCheck,
     title: "Rutas con menos fricción",
-    description: "Destinos pensados para latinos que quieren empezar rápido su experiencia.",
+    description: "Destinos pensados para latinos que quieren empezar rápido su viaje.",
   },
 ];
 

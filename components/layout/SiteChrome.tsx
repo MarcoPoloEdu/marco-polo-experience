@@ -93,7 +93,7 @@ export function SiteFooter() {
             >
               Marco Polo Education
             </a>
-            — la misión de llevar a un millón de hispanohablantes al país de sus sueños.
+            . Porque no se trata solo de aprender un idioma: se trata de vivirlo.
           </p>
         </div>
         <p className="text-sm text-white/50">© {new Date().getFullYear()} Marco Polo Experience</p>
