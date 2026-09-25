@@ -6,22 +6,47 @@ import { CourseGallery } from "@/components/course/CourseGallery";
 import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 import { getLanguageLabel, getSchool, schools } from "@/lib/data/schools";
 import { formatUsd } from "@/lib/pricing";
+import type { AccommodationType, DurationWeeks } from "@/lib/types";
 
 interface CoursePageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{
+    reservado?: string;
+    semanas?: string;
+    alojamiento?: string;
+    seguro?: string;
+  }>;
 }
 
 export function generateStaticParams() {
   return schools.map((school) => ({ slug: school.slug }));
 }
 
-export default async function CoursePage({ params }: CoursePageProps) {
+function parseWeeks(value?: string): DurationWeeks {
+  if (value === "8" || value === "12") return Number(value) as DurationWeeks;
+  return 4;
+}
+
+function parseAccommodation(value?: string): AccommodationType {
+  return value === "residence" ? "residence" : "homestay";
+}
+
+export default async function CoursePage({
+  params,
+  searchParams,
+}: CoursePageProps) {
   const { slug } = await params;
+  const query = await searchParams;
   const school = getSchool(slug);
 
   if (!school) {
     notFound();
   }
+
+  const reserved = query.reservado === "1";
+  const initialWeeks = parseWeeks(query.semanas);
+  const initialAccommodation = parseAccommodation(query.alojamiento);
+  const initialGuardMe = query.seguro !== "0";
 
   return (
     <main className="flex-1">
@@ -80,7 +105,13 @@ export default async function CoursePage({ params }: CoursePageProps) {
           </section>
         </div>
 
-        <CheckoutBuilder school={school} />
+        <CheckoutBuilder
+          school={school}
+          reserved={reserved}
+          initialWeeks={initialWeeks}
+          initialAccommodation={initialAccommodation}
+          initialGuardMe={initialGuardMe}
+        />
       </div>
 
       <SiteFooter />

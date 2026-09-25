@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CheckCircle2, CreditCard, Lock } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,18 +19,23 @@ import { cn } from "@/lib/utils";
 
 interface CheckoutBuilderProps {
   school: School;
+  reserved?: boolean;
   initialWeeks?: DurationWeeks;
+  initialAccommodation?: AccommodationType;
+  initialGuardMe?: boolean;
 }
 
 export function CheckoutBuilder({
   school,
+  reserved = false,
   initialWeeks = 4,
+  initialAccommodation = "homestay",
+  initialGuardMe = true,
 }: CheckoutBuilderProps) {
   const [weeks, setWeeks] = useState<DurationWeeks>(initialWeeks);
   const [accommodation, setAccommodation] =
-    useState<AccommodationType>("homestay");
-  const [guardMe, setGuardMe] = useState(true);
-  const [confirmed, setConfirmed] = useState(false);
+    useState<AccommodationType>(initialAccommodation);
+  const [guardMe, setGuardMe] = useState(initialGuardMe);
 
   const pricing = useMemo(
     () =>
@@ -42,7 +48,17 @@ export function CheckoutBuilder({
     [school.weeklyPrice, weeks, accommodation, guardMe]
   );
 
-  if (confirmed) {
+  const confirmHref = useMemo(() => {
+    const params = new URLSearchParams({
+      reservado: "1",
+      semanas: String(weeks),
+      alojamiento: accommodation,
+      seguro: guardMe ? "1" : "0",
+    });
+    return `?${params.toString()}`;
+  }, [weeks, accommodation, guardMe]);
+
+  if (reserved) {
     return (
       <div className="rounded-[1.4rem] border border-border bg-white p-6 shadow-[0_24px_60px_-36px_rgba(38,38,59,0.55)] lg:sticky lg:top-6">
         <div className="flex flex-col items-start gap-3">
@@ -64,13 +80,13 @@ export function CheckoutBuilder({
               <span className="font-semibold text-ink">{formatUsd(pricing.total)}</span>
             </div>
           </div>
-          <button
-            type="button"
+          <Link
+            href={`/courses/${school.slug}`}
             className={cn(buttonVariants({ variant: "outline" }), "w-full")}
-            onClick={() => setConfirmed(false)}
+            data-testid="edit-booking"
           >
             Editar detalles de la reserva
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -168,18 +184,18 @@ export function CheckoutBuilder({
           </div>
         </div>
 
-        <button
-          type="button"
+        <Link
+          href={confirmHref}
+          scroll={false}
           data-testid="book-now"
           className={cn(
             buttonVariants({ size: "lg" }),
-            "h-12 w-full cursor-pointer gap-2 border-0 text-ink gradient-cta hover:opacity-95"
+            "h-12 w-full gap-2 border-0 text-ink gradient-cta hover:opacity-95"
           )}
-          onClick={() => setConfirmed(true)}
         >
           <CreditCard className="size-4" />
           Reservar ahora con tarjeta
-        </button>
+        </Link>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <Lock className="size-3.5" />
