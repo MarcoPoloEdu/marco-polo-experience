@@ -16,9 +16,15 @@ interface SchoolCardProps {
 
 export function SchoolCard({ school, weeks }: SchoolCardProps) {
   const courseEstimate = school.weeklyPrice * weeks;
+  const href = `/courses/${school.slug}`;
 
   return (
-    <Card className="overflow-hidden border-border py-0 shadow-none">
+    <Card className="relative overflow-hidden border-border py-0 shadow-none transition hover:border-primary/40">
+      <Link
+        href={href}
+        className="absolute inset-0 z-10"
+        aria-label={`View course at ${school.name}`}
+      />
       <div className="relative aspect-[16/10] bg-muted">
         <Image
           src={school.images[0]}
@@ -28,7 +34,7 @@ export function SchoolCard({ school, weeks }: SchoolCardProps) {
           sizes="(max-width: 768px) 100vw, 50vw"
         />
       </div>
-      <CardContent className="space-y-3 px-4 pt-4">
+      <CardContent className="relative z-0 space-y-3 px-4 pt-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-foreground">
@@ -65,13 +71,15 @@ export function SchoolCard({ school, weeks }: SchoolCardProps) {
           </p>
         </div>
       </CardContent>
-      <CardFooter className="px-4 pb-4">
-        <Link
-          href={`/courses/${school.slug}`}
-          className={cn(buttonVariants({ size: "default" }), "w-full")}
+      <CardFooter className="relative z-0 px-4 pb-4">
+        <span
+          className={cn(
+            buttonVariants({ size: "default" }),
+            "pointer-events-none w-full"
+          )}
         >
           View Course
-        </Link>
+        </span>
       </CardFooter>
     </Card>
   );

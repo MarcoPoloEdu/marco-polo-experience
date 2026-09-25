@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -16,19 +16,25 @@ import {
   PASSPORT_OPTIONS,
 } from "@/lib/data/schools";
 import type { LanguageCode, PassportCode } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export function HeroSearch() {
-  const router = useRouter();
   const [passport, setPassport] = useState<PassportCode>("USA");
   const [language, setLanguage] = useState<LanguageCode>("german");
 
-  function onSearch() {
-    const params = new URLSearchParams({
-      passport,
-      language,
-    });
-    router.push(`/search?${params.toString()}`);
-  }
+  const searchHref = useMemo(() => {
+    const params = new URLSearchParams({ passport, language });
+    return `/search?${params.toString()}`;
+  }, [passport, language]);
+
+  const passportItems = useMemo(
+    () => Object.fromEntries(PASSPORT_OPTIONS.map((o) => [o.value, o.label])),
+    []
+  );
+  const languageItems = useMemo(
+    () => Object.fromEntries(LANGUAGE_OPTIONS.map((o) => [o.value, o.label])),
+    []
+  );
 
   return (
     <section className="relative overflow-hidden border-b border-border bg-white">
@@ -64,6 +70,7 @@ export function HeroSearch() {
                 onValueChange={(v) => {
                   if (v) setPassport(v as PassportCode);
                 }}
+                items={passportItems}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select passport" />
@@ -87,6 +94,7 @@ export function HeroSearch() {
                 onValueChange={(v) => {
                   if (v) setLanguage(v as LanguageCode);
                 }}
+                items={languageItems}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select language" />
@@ -102,14 +110,16 @@ export function HeroSearch() {
             </div>
 
             <div className="flex items-end">
-              <Button
-                size="lg"
-                className="h-9 w-full gap-2 px-5 sm:w-auto"
-                onClick={onSearch}
+              <Link
+                href={searchHref}
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "h-9 w-full gap-2 px-5 sm:w-auto"
+                )}
               >
                 <Search className="size-4" />
                 Search Destinations
-              </Button>
+              </Link>
             </div>
           </div>
         </div>
