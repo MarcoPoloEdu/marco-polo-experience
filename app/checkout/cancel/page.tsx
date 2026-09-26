@@ -3,16 +3,7 @@ import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface CancelPageProps {
-  searchParams: Promise<{ school?: string }>;
-}
-
-export default async function CheckoutCancelPage({
-  searchParams,
-}: CancelPageProps) {
-  const { school } = await searchParams;
-  const backHref = school ? `/courses/${school}` : "/";
-
+export default function CheckoutCancelPage() {
   return (
     <main className="flex-1">
       <SiteHeader />
@@ -24,20 +15,11 @@ export default async function CheckoutCancelPage({
           No se realizó ningún cargo
         </h1>
         <p className="text-muted-foreground">
-          Cancelaste Stripe Checkout. Tu paquete sigue disponible: puedes volver al
-          curso y reintentar cuando quieras.
+          Cancelaste el checkout. Puedes volver al inicio y completar la reserva demo.
         </p>
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Link
-            href={backHref}
-            className={cn(buttonVariants(), "gradient-cta border-0 text-ink")}
-          >
-            Volver al curso
-          </Link>
-          <Link href="/" className={cn(buttonVariants({ variant: "outline" }))}>
-            Ir al inicio
-          </Link>
-        </div>
+        <Link href="/" className={cn(buttonVariants(), "gradient-cta border-0 text-ink")}>
+          Ir al inicio
+        </Link>
       </div>
       <SiteFooter />
     </main>

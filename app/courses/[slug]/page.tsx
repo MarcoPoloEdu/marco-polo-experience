@@ -6,51 +6,22 @@ import { CourseGallery } from "@/components/course/CourseGallery";
 import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 import { getLanguageLabel, getSchool, schools } from "@/lib/data/schools";
 import { formatUsd } from "@/lib/pricing";
-import { isStripeConfigured } from "@/lib/stripe";
-import type { AccommodationType, DurationWeeks } from "@/lib/types";
 
 interface CoursePageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{
-    reservado?: string;
-    semanas?: string;
-    alojamiento?: string;
-    seguro?: string;
-    passport?: string;
-  }>;
 }
 
 export function generateStaticParams() {
   return schools.map((school) => ({ slug: school.slug }));
 }
 
-function parseWeeks(value?: string): DurationWeeks {
-  if (value === "8" || value === "12") return Number(value) as DurationWeeks;
-  return 4;
-}
-
-function parseAccommodation(value?: string): AccommodationType {
-  return value === "residence" ? "residence" : "homestay";
-}
-
-export default async function CoursePage({
-  params,
-  searchParams,
-}: CoursePageProps) {
+export default async function CoursePage({ params }: CoursePageProps) {
   const { slug } = await params;
-  const query = await searchParams;
   const school = getSchool(slug);
 
   if (!school) {
     notFound();
   }
-
-  const reserved = query.reservado === "1";
-  const initialWeeks = parseWeeks(query.semanas);
-  const initialAccommodation = parseAccommodation(query.alojamiento);
-  const initialGuardMe = query.seguro !== "0";
-  const passport = query.passport ?? "COL";
-  const stripeConfigured = isStripeConfigured();
 
   return (
     <main className="flex-1">
@@ -60,10 +31,10 @@ export default async function CoursePage({
         <div className="space-y-7">
           <div className="space-y-3">
             <Link
-              href={`/search?passport=${encodeURIComponent(passport)}&destination=${school.destinationSlug}&language=${school.language}`}
+              href="/"
               className="text-sm font-medium text-indigo hover:underline"
             >
-              ← Volver a resultados
+              ← Volver al inicio
             </Link>
             <p className="text-sm font-semibold tracking-[0.14em] text-mint uppercase">
               Curso de {getLanguageLabel(school.language)}
@@ -109,14 +80,7 @@ export default async function CoursePage({
           </section>
         </div>
 
-        <CheckoutBuilder
-          school={school}
-          reserved={reserved}
-          initialWeeks={initialWeeks}
-          initialAccommodation={initialAccommodation}
-          initialGuardMe={initialGuardMe}
-          stripeConfigured={stripeConfigured}
-        />
+        <CheckoutBuilder school={school} stripeConfigured={false} />
       </div>
 
       <SiteFooter />

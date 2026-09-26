@@ -42,7 +42,7 @@ import {
   formatUsd,
 } from "@/lib/booking/pricing";
 import { cn } from "@/lib/utils";
-import type { EmailPayload } from "@/lib/email";
+import { buildBookingEmails, type EmailPayload } from "@/lib/email";
 
 const STEPS = [
   { id: 1, label: "País e idioma" },
@@ -202,45 +202,93 @@ export function BookingWizard() {
     }
 
     setLoading(true);
+    const payload = {
+      nationality,
+      language,
+      destinationId,
+      programId,
+      startDate,
+      weeks,
+      accommodationId,
+      insuranceId,
+      airportId,
+      contact: {
+        name: contactName.trim(),
+        email: contactEmail.trim(),
+        phone: contactPhone.trim(),
+      },
+      card: {
+        brand: cardBrand,
+        last4: cardLast4,
+        mockPaymentMethodId: paymentMethodId,
+      },
+    };
+
     try {
-      const res = await fetch("/api/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nationality,
-          language,
-          destinationId,
-          programId,
-          startDate,
-          weeks,
-          accommodationId,
-          insuranceId,
-          airportId,
-          contact: {
-            name: contactName.trim(),
-            email: contactEmail.trim(),
-            phone: contactPhone.trim(),
-          },
-          card: {
-            brand: cardBrand,
-            last4: cardLast4,
-            mockPaymentMethodId: paymentMethodId,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "No pudimos cobrar. Intenta de nuevo.");
-        setLoading(false);
-        return;
+      // Prefer server charge when API is available; fall back to full client mock.
+      let data: {
+        bookingId?: string;
+        emails?: EmailPayload[];
+        paymentMode?: "stripe" | "mock";
+        emailDelivery?: { provider?: "resend" | "log" };
+        error?: string;
+      } | null = null;
+
+      try {
+        const res = await fetch("/api/book", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch {
+        data = null;
       }
-      setBookingId(data.bookingId);
+
+      if (!data?.bookingId) {
+        const dest = getDestination(destinationId);
+        const prog = getProgram(programId);
+        const bookingId = `MPE-${Date.now().toString(36).toUpperCase()}`;
+        const end = addWeeks(startDate, weeks);
+        const emails = buildBookingEmails({
+          bookingId,
+          customerName: contactName.trim(),
+          customerEmail: contactEmail.trim(),
+          customerPhone: contactPhone.trim(),
+          nationalityLabel:
+            NATIONALITIES.find((n) => n.code === nationality)?.label ?? String(nationality),
+          languageLabel:
+            LANGUAGES.find((l) => l.code === language)?.label ?? String(language),
+          destinationLabel: dest ? `${dest.city}, ${dest.country}` : destinationId,
+          programTitle: prog?.title ?? programId,
+          schoolName: prog?.schoolName ?? "Escuela",
+          schoolEmail: prog?.schoolEmail ?? "school@example.com",
+          startDate: formatDateEs(startDate),
+          endDate: formatDateEs(end),
+          weeks,
+          totalUsd: pricing.total,
+          extrasSummary: "Mock extras",
+          charged: true,
+          paymentMode: "mock",
+        });
+        console.info("[book:client-mock]", bookingId, emails);
+        data = {
+          bookingId,
+          emails,
+          paymentMode: "mock",
+          emailDelivery: { provider: "log" },
+        };
+      }
+
+      setBookingId(data.bookingId!);
       setEmails(data.emails ?? []);
-      setPaymentMode(data.paymentMode);
-      setEmailProvider(data.emailDelivery?.provider ?? null);
+      setPaymentMode(data.paymentMode ?? "mock");
+      setEmailProvider(data.emailDelivery?.provider ?? "log");
       setStep(8);
     } catch {
-      setError("Error de red. Intenta de nuevo.");
+      setError("Error al confirmar. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
