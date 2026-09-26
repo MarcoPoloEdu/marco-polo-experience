@@ -42,6 +42,7 @@
   --color-mint: var(--mint);
   --color-indigo: var(--indigo);
   --color-ink: var(--ink);
+  --color-sand: var(--sand);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -52,27 +53,28 @@
 :root {
   /* Marco Polo Education sister palette */
   --ink: #26263b;
-  --mint: #03ce81;
+  --mint: #00e699;
   --indigo: #4d65ff;
-  --background: #f7f8fb;
+  --sand: #f3f6f8;
+  --background: #f3f6f8;
   --foreground: #26263b;
   --card: #ffffff;
   --card-foreground: #26263b;
   --popover: #ffffff;
   --popover-foreground: #26263b;
-  --primary: #03ce81;
+  --primary: #00e699;
   --primary-foreground: #0b1f18;
-  --secondary: #eef0f8;
+  --secondary: #e8eef5;
   --secondary-foreground: #26263b;
-  --muted: #eef0f5;
-  --muted-foreground: #5d6c7b;
+  --muted: #e8eef5;
+  --muted-foreground: #5a6578;
   --accent: #4d65ff;
   --accent-foreground: #ffffff;
   --destructive: #ea384c;
-  --border: #e2e6ef;
-  --input: #dfe3ee;
-  --ring: #03ce81;
-  --chart-1: #03ce81;
+  --border: #d9e1ec;
+  --input: #d5dee9;
+  --ring: #00e699;
+  --chart-1: #00e699;
   --chart-2: #4d65ff;
   --chart-3: #00a5c4;
   --chart-4: #26263b;
@@ -80,12 +82,12 @@
   --radius: 0.85rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #26263b;
-  --sidebar-primary: #03ce81;
+  --sidebar-primary: #00e699;
   --sidebar-primary-foreground: #0b1f18;
-  --sidebar-accent: #eef0f8;
+  --sidebar-accent: #e8eef5;
   --sidebar-accent-foreground: #26263b;
-  --sidebar-border: #e2e6ef;
-  --sidebar-ring: #03ce81;
+  --sidebar-border: #d9e1ec;
+  --sidebar-ring: #00e699;
 }
 
 @layer base {
@@ -109,7 +111,7 @@
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(22px);
   }
   to {
     opacity: 1;
@@ -119,10 +121,10 @@
 
 @keyframes drift {
   from {
-    transform: scale(1.08) translateY(0);
+    transform: scale(1.1) translate3d(0, 0, 0);
   }
   to {
-    transform: scale(1) translateY(-2%);
+    transform: scale(1) translate3d(0, -1.5%, 0);
   }
 }
 
@@ -135,24 +137,47 @@
   }
 }
 
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-rise {
-  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .animate-rise-delay-1 {
-  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+  animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
 }
 
 .animate-rise-delay-2 {
-  animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both;
+  animation: rise 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
 }
 
 .animate-drift {
-  animation: drift 18s ease-out forwards;
+  animation: drift 22s ease-out forwards;
+}
+
+.animate-sheet-up {
+  animation: sheet-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .gradient-cta {
-  background: linear-gradient(120deg, #03ce81, #00a5c4, #4d65ff);
+  background: linear-gradient(120deg, #00e699, #4d65ff);
   background-size: 200% 200%;
-  animation: shimmer 6s ease infinite;
+  animation: shimmer 7s ease infinite;
+}
+
+.mpe-grain {
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.07) 0.6px,
+    transparent 0.6px
+  );
+  background-size: 4px 4px;
 }

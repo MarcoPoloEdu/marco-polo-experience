@@ -9,6 +9,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Compass,
   CreditCard,
   Loader2,
   Lock,
@@ -45,15 +46,18 @@ import { cn } from "@/lib/utils";
 import { buildBookingEmails, type EmailPayload } from "@/lib/email";
 
 const STEPS = [
-  { id: 1, label: "País e idioma" },
+  { id: 1, label: "País" },
   { id: 2, label: "Destino" },
   { id: 3, label: "Fechas" },
   { id: 4, label: "Programa" },
   { id: 5, label: "Extras" },
   { id: 6, label: "Tarjeta" },
   { id: 7, label: "Contacto" },
-  { id: 8, label: "Confirmación" },
+  { id: 8, label: "Listo" },
 ] as const;
+
+const HERO_FALLBACK =
+  "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2400&q=80";
 
 function defaultStartDate() {
   const d = new Date();
@@ -108,7 +112,6 @@ export function BookingWizard() {
   const [priceOpen, setPriceOpen] = useState(false);
 
   const currentStepMeta = STEPS.find((s) => s.id === step) ?? STEPS[0];
-
   const endDate = useMemo(() => addWeeks(startDate, weeks), [startDate, weeks]);
   const destinations = useMemo(
     () => (language ? suggestDestinations(language) : []),
@@ -116,9 +119,7 @@ export function BookingWizard() {
   );
   const programs = useMemo(
     () =>
-      destinationId && language
-        ? enabledPrograms(destinationId, language)
-        : [],
+      destinationId && language ? enabledPrograms(destinationId, language) : [],
     [destinationId, language]
   );
   const destination = destinationId ? getDestination(destinationId) : undefined;
@@ -146,6 +147,7 @@ export function BookingWizard() {
   }, [programId, weeks, accommodationId, insuranceId, airportId]);
 
   const showSidebar = step >= 5 && step <= 7;
+  const atmosphereUrl = destination?.heroUrl ?? HERO_FALLBACK;
 
   function goNext() {
     setError(null);
@@ -167,7 +169,7 @@ export function BookingWizard() {
       return;
     }
     if (!luhnOk(digits)) {
-      setError("Número de tarjeta inválido. Tip demo: usa 4242 4242 4242 4242.");
+      setError("Número de tarjeta inválido. Tip demo: 4242 4242 4242 4242.");
       return;
     }
     if (!/^\d{2}\/\d{2}$/.test(cardExp)) {
@@ -178,8 +180,7 @@ export function BookingWizard() {
       setError("CVC inválido.");
       return;
     }
-    const pm = `mock_pm_${digits.slice(-4)}_${Date.now().toString(36)}`;
-    setPaymentMethodId(pm);
+    setPaymentMethodId(`mock_pm_${digits.slice(-4)}_${Date.now().toString(36)}`);
     setCardLast4(digits.slice(-4));
     setCardBrand(digits.startsWith("4") ? "visa" : "card");
     goNext();
@@ -225,13 +226,11 @@ export function BookingWizard() {
     };
 
     try {
-      // Prefer server charge when API is available; fall back to full client mock.
       let data: {
         bookingId?: string;
         emails?: EmailPayload[];
         paymentMode?: "stripe" | "mock";
         emailDelivery?: { provider?: "resend" | "log" };
-        error?: string;
       } | null = null;
 
       try {
@@ -240,9 +239,7 @@ export function BookingWizard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (res.ok) {
-          data = await res.json();
-        }
+        if (res.ok) data = await res.json();
       } catch {
         data = null;
       }
@@ -250,15 +247,16 @@ export function BookingWizard() {
       if (!data?.bookingId) {
         const dest = getDestination(destinationId);
         const prog = getProgram(programId);
-        const bookingId = `MPE-${Date.now().toString(36).toUpperCase()}`;
+        const id = `MPE-${Date.now().toString(36).toUpperCase()}`;
         const end = addWeeks(startDate, weeks);
-        const emails = buildBookingEmails({
-          bookingId,
+        const built = buildBookingEmails({
+          bookingId: id,
           customerName: contactName.trim(),
           customerEmail: contactEmail.trim(),
           customerPhone: contactPhone.trim(),
           nationalityLabel:
-            NATIONALITIES.find((n) => n.code === nationality)?.label ?? String(nationality),
+            NATIONALITIES.find((n) => n.code === nationality)?.label ??
+            String(nationality),
           languageLabel:
             LANGUAGES.find((l) => l.code === language)?.label ?? String(language),
           destinationLabel: dest ? `${dest.city}, ${dest.country}` : destinationId,
@@ -273,10 +271,10 @@ export function BookingWizard() {
           charged: true,
           paymentMode: "mock",
         });
-        console.info("[book:client-mock]", bookingId, emails);
+        console.info("[book:client-mock]", id, built);
         data = {
-          bookingId,
-          emails,
+          bookingId: id,
+          emails: built,
           paymentMode: "mock",
           emailDelivery: { provider: "log" },
         };
@@ -296,317 +294,306 @@ export function BookingWizard() {
 
   return (
     <div className="relative min-h-[100dvh] overflow-x-hidden bg-ink text-white">
-      {/* Full-bleed atmosphere */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            destination?.heroUrl
-              ? `url(${destination.heroUrl})`
-              : "url(https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=2000&q=80)",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-ink/80 via-ink/85 to-ink" />
-      <div
-        className="absolute inset-0 opacity-50"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 12% 18%, rgba(3,206,129,0.28), transparent 40%), radial-gradient(circle at 88% 8%, rgba(77,101,255,0.3), transparent 42%)",
-        }}
-      />
+        className="pointer-events-none absolute inset-0"
+        aria-hidden
+      >
+        <div
+          className="absolute inset-0 animate-drift bg-cover bg-center"
+          style={{ backgroundImage: `url(${atmosphereUrl})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/70 via-ink/78 to-ink" />
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            backgroundImage:
+              "radial-gradient(ellipse at 15% 10%, rgba(0,230,153,0.28), transparent 42%), radial-gradient(ellipse at 90% 0%, rgba(77,101,255,0.32), transparent 45%)",
+          }}
+        />
+        <div className="absolute inset-0 mpe-grain opacity-40" />
+      </div>
 
       <div
         className={cn(
-          "relative mx-auto max-w-6xl px-3 pt-5 sm:px-6 sm:pt-8",
-          showSidebar ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))] lg:pb-20" : "pb-16 sm:pb-20"
+          "relative mx-auto max-w-6xl px-3 pt-4 sm:px-6 sm:pt-6",
+          showSidebar
+            ? "pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-16"
+            : "pb-12 sm:pb-16"
         )}
       >
-        <header className="mb-5 flex items-start justify-between gap-3 sm:mb-8 sm:items-center sm:gap-4">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold tracking-[0.18em] text-mint uppercase sm:text-xs sm:tracking-[0.22em]">
-              Marco Polo Experience
-            </p>
-            <p className="mt-0.5 text-xs leading-snug text-white/60 sm:text-sm">
-              <span className="sm:hidden">Vive el idioma. Reserva en minutos.</span>
-              <span className="hidden sm:inline">
-                No se trata solo de aprender un idioma — se trata de vivirlo.
-              </span>
-            </p>
-          </div>
-          <a
-            href="https://www.marcopoloeducation.com"
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 rounded-full bg-white/10 px-3 py-2.5 text-xs font-semibold ring-1 ring-white/25 hover:bg-white/15 sm:px-3.5 sm:text-sm"
-          >
-            MPE
-            <span className="hidden sm:inline"> · Asesoría</span>
-          </a>
-        </header>
+        <BrandHeader />
 
-        {/* Progress — compact on mobile, pills on desktop */}
-        <nav className="mb-5 sm:mb-8" aria-label="Progreso de reserva">
-          <div className="rounded-2xl border border-white/15 bg-white/10 px-3.5 py-3 sm:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold">
-                Paso {step} de {STEPS.length}
+        {step > 1 && (
+          <ProgressTrail step={step} label={currentStepMeta.label} />
+        )}
+
+        {/* STEP 1 — brand-first hero */}
+        {step === 1 && (
+          <section className="flex min-h-[78dvh] flex-col justify-end gap-8 pb-2 pt-10 sm:min-h-[82dvh] sm:pb-6">
+            <div className="max-w-3xl space-y-5">
+              <p className="animate-rise text-xs font-semibold tracking-[0.28em] text-mint uppercase sm:text-sm">
+                Marco Polo Experience
               </p>
-              <p className="truncate text-xs text-mint">{currentStepMeta.label}</p>
+              <h1 className="animate-rise-delay-1 font-heading text-[2.35rem] leading-[1.05] font-semibold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
+                No se trata solo de aprender un idioma.
+                <span className="mt-2 block bg-gradient-to-r from-mint via-sky-300 to-indigo bg-clip-text text-transparent">
+                  Se trata de vivirlo.
+                </span>
+              </h1>
+              <p className="animate-rise-delay-2 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
+                Cursos cortos en ciudades icónicas. Hermana de Marco Polo Education —
+                confianza de asesoría, velocidad de ecommerce.
+              </p>
             </div>
-            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-mint transition-all duration-300"
-                style={{ width: `${(step / STEPS.length) * 100}%` }}
-              />
-            </div>
-          </div>
-          <div className="hidden gap-1.5 sm:flex sm:flex-wrap">
-            {STEPS.map((s) => (
-              <div
-                key={s.id}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-center text-[11px] font-medium tracking-wide",
-                  step === s.id
-                    ? "bg-mint text-ink"
-                    : step > s.id
-                      ? "bg-white/15 text-white"
-                      : "bg-white/5 text-white/40"
-                )}
-              >
-                {s.id}. {s.label}
-              </div>
-            ))}
-          </div>
-        </nav>
 
-        <div className={cn("grid gap-6 sm:gap-8", showSidebar && "lg:grid-cols-[1.35fr_0.9fr]")}>
-          <div className="min-w-0 rounded-[1.25rem] border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:rounded-[1.6rem] sm:p-7">
-            {step === 1 && (
-              <StepShell
-                title="¿De dónde eres y qué idioma quieres vivir?"
-                subtitle="Empezamos por tu nacionalidad y el idioma que vas a estudiar."
-              >
-                <div className="space-y-5">
-                  <Field label="Tu país (nacionalidad)">
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {NATIONALITIES.map((n) => (
-                        <button
-                          key={n.code}
-                          type="button"
-                          onClick={() => setNationality(n.code)}
-                          className={cn(
-                            "min-h-12 rounded-xl border px-3 py-3 text-left text-sm transition active:scale-[0.98]",
-                            nationality === n.code
-                              ? "border-mint bg-mint/20 text-white"
-                              : "border-white/15 bg-white/5 hover:bg-white/10"
-                          )}
-                        >
-                          <span className="mr-1.5">{n.flag}</span>
-                          {n.label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                  <Field label="Idioma a estudiar">
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {LANGUAGES.map((l) => (
-                        <button
-                          key={l.code}
-                          type="button"
-                          onClick={() => {
-                            setLanguage(l.code);
-                            setDestinationId("");
-                            setProgramId("");
-                          }}
-                          className={cn(
-                            "min-h-14 rounded-xl border px-4 py-3.5 text-left transition active:scale-[0.98]",
-                            language === l.code
-                              ? "border-mint bg-mint/20"
-                              : "border-white/15 bg-white/5 hover:bg-white/10"
-                          )}
-                        >
-                          <p className="font-heading text-base font-semibold">{l.label}</p>
-                          <p className="text-xs text-white/65">{l.tagline}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                  <NavRow
-                    onBack={undefined}
-                    onNext={() => nationality && language && goNext()}
-                    nextDisabled={!nationality || !language}
-                    nextLabel="Ver destinos"
-                  />
-                </div>
-              </StepShell>
-            )}
-
-            {step === 2 && language && (
-              <StepShell
-                title="Destinos sugeridos para ti"
-                subtitle="Ordenados por menor fricción de visa y precio de entrada (datos demo)."
-              >
-                <div className="grid gap-3 sm:gap-4">
-                  {destinations.map((d) => (
+            <div className="animate-rise-delay-2 space-y-4 rounded-[1.5rem] border border-white/15 bg-white/10 p-4 backdrop-blur-xl sm:p-5">
+              <p className="text-sm font-medium text-white/80">
+                Empieza por tu pasaporte y el idioma que quieres vivir
+              </p>
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
+                  Nacionalidad
+                </p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {NATIONALITIES.map((n) => (
                     <button
-                      key={d.id}
+                      key={n.code}
                       type="button"
-                      onClick={() => {
-                        setDestinationId(d.id);
-                        setProgramId("");
-                      }}
+                      onClick={() => setNationality(n.code)}
                       className={cn(
-                        "group overflow-hidden rounded-2xl border text-left transition active:scale-[0.99]",
-                        destinationId === d.id
-                          ? "border-mint ring-2 ring-mint/40"
-                          : "border-white/15 hover:border-white/35"
+                        "min-h-12 rounded-xl border px-3 py-2.5 text-left text-sm transition active:scale-[0.98]",
+                        nationality === n.code
+                          ? "border-mint bg-mint text-ink shadow-[0_0_0_1px_rgba(0,230,153,0.4)]"
+                          : "border-white/20 bg-ink/30 text-white hover:bg-white/10"
                       )}
                     >
-                      <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr]">
-                        <div className="relative aspect-[16/10] sm:aspect-auto sm:min-h-[140px]">
-                          <Image
-                            src={d.imageUrl}
-                            alt={d.city}
-                            fill
-                            className="object-cover transition duration-500 group-hover:scale-105"
-                            sizes="(max-width: 640px) 100vw, 180px"
-                          />
-                        </div>
-                        <div className="space-y-2 bg-white/5 p-3.5 sm:p-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-xs font-semibold tracking-wide text-mint uppercase">
-                              {d.country}
-                            </p>
-                            <FrictionPill level={d.visaFriction} />
-                          </div>
-                          <p className="font-heading text-lg font-semibold sm:text-xl">{d.city}</p>
-                          <p className="text-sm leading-snug text-white/75">{d.tagline}</p>
-                          <p className="hidden text-xs text-white/55 line-clamp-2 sm:block">{d.blurb}</p>
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {d.vibe.map((v) => (
-                              <span
-                                key={v}
-                                className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80"
-                              >
-                                {v}
-                              </span>
-                            ))}
-                          </div>
-                          <p className="text-sm font-semibold text-white">
-                            Desde {formatUsd(d.fromWeeklyUsd)}
-                            <span className="font-normal text-white/60"> / semana</span>
-                          </p>
-                        </div>
-                      </div>
+                      <span className="mr-1">{n.flag}</span>
+                      {n.label}
                     </button>
                   ))}
                 </div>
-                <NavRow
-                  onBack={goBack}
-                  onNext={() => destinationId && goNext()}
-                  nextDisabled={!destinationId}
-                  nextLabel="Elegir fechas"
-                />
-              </StepShell>
-            )}
-
-            {step === 3 && (
-              <StepShell
-                title="¿Cuándo viajas?"
-                subtitle="Elige fecha de inicio y duración — calculamos el fin de tu experiencia en vivo."
+              </div>
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
+                  Idioma
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {LANGUAGES.map((l) => (
+                    <button
+                      key={l.code}
+                      type="button"
+                      onClick={() => {
+                        setLanguage(l.code);
+                        setDestinationId("");
+                        setProgramId("");
+                      }}
+                      className={cn(
+                        "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-[0.98]",
+                        language === l.code
+                          ? "border-transparent bg-indigo text-white"
+                          : "border-white/20 bg-white/5 text-white/85 hover:bg-white/10"
+                      )}
+                    >
+                      {l.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={!nationality || !language}
+                onClick={goNext}
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "mt-1 h-12 w-full gap-2 border-0 text-ink gradient-cta disabled:opacity-40 sm:w-auto sm:min-w-[220px]"
+                )}
               >
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Field label="Fecha de inicio">
-                    <input
-                      type="date"
-                      value={startDate}
-                      min={new Date().toISOString().slice(0, 10)}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white/95 px-3 text-base text-ink outline-none focus:ring-2 focus:ring-mint"
-                    />
-                  </Field>
-                  <Field label="Duración">
-                    <div className="grid grid-cols-3 gap-2">
-                      {WEEK_OPTIONS.map((w) => (
+                Ver destinos
+                <ArrowRight className="size-4" />
+              </button>
+            </div>
+          </section>
+        )}
+
+        {step > 1 && (
+          <div
+            className={cn(
+              "mt-4 grid gap-6 lg:mt-6",
+              showSidebar && "lg:grid-cols-[1.4fr_0.85fr] lg:items-start"
+            )}
+          >
+            <div
+              key={step}
+              className="animate-rise min-w-0 rounded-[1.35rem] border border-white/12 bg-white/[0.08] p-4 shadow-[0_30px_80px_-40px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:rounded-[1.6rem] sm:p-7"
+            >
+              {step === 2 && language && (
+                <StepShell
+                  kicker="Destinos sugeridos"
+                  title="¿Dónde quieres vivir el idioma?"
+                  subtitle="Ordenados por fricción de visa y precio de entrada (demo)."
+                >
+                  <div className="space-y-3">
+                    {destinations.map((d, i) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => {
+                          setDestinationId(d.id);
+                          setProgramId("");
+                        }}
+                        className={cn(
+                          "group relative block w-full overflow-hidden rounded-[1.25rem] text-left transition active:scale-[0.995]",
+                          destinationId === d.id
+                            ? "ring-2 ring-mint ring-offset-2 ring-offset-ink"
+                            : "ring-1 ring-white/15 hover:ring-white/35"
+                        )}
+                        style={{ animationDelay: `${i * 40}ms` }}
+                      >
+                        <div className="relative aspect-[16/11] sm:aspect-[21/9]">
+                          <Image
+                            src={d.heroUrl || d.imageUrl}
+                            alt={`${d.city}, ${d.country}`}
+                            fill
+                            className="object-cover transition duration-700 group-hover:scale-[1.04]"
+                            sizes="(max-width: 768px) 100vw, 720px"
+                            priority={i === 0}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/35 to-transparent" />
+                          <div className="absolute inset-x-0 bottom-0 space-y-2 p-4 sm:p-6">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[11px] font-semibold tracking-[0.18em] text-mint uppercase">
+                                {d.country}
+                              </span>
+                              <FrictionPill level={d.visaFriction} />
+                            </div>
+                            <div className="flex items-end justify-between gap-3">
+                              <div>
+                                <h3 className="font-heading text-2xl font-semibold sm:text-3xl">
+                                  {d.city}
+                                </h3>
+                                <p className="mt-1 max-w-xl text-sm text-white/75">
+                                  {d.tagline}
+                                </p>
+                              </div>
+                              <p className="shrink-0 text-right text-sm font-semibold">
+                                desde {formatUsd(d.fromWeeklyUsd)}
+                                <span className="block text-[11px] font-normal text-white/60">
+                                  / semana
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <NavRow
+                    onBack={goBack}
+                    onNext={() => destinationId && goNext()}
+                    nextDisabled={!destinationId}
+                    nextLabel="Elegir fechas"
+                  />
+                </StepShell>
+              )}
+
+              {step === 3 && (
+                <StepShell
+                  kicker="Fechas de viaje"
+                  title="¿Cuándo arranca tu experiencia?"
+                  subtitle="Inicio + duración. Calculamos el fin en vivo."
+                >
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-xs font-medium text-white/65">
+                        Fecha de inicio
+                      </span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink outline-none focus:ring-2 focus:ring-mint"
+                      />
+                    </label>
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-white/65">Duración</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {WEEK_OPTIONS.map((w) => (
+                          <button
+                            key={w}
+                            type="button"
+                            onClick={() => setWeeks(w)}
+                            className={cn(
+                              "min-h-14 rounded-xl border px-2 py-3 text-center text-sm font-semibold active:scale-[0.98]",
+                              weeks === w
+                                ? "border-mint bg-mint/25 text-white"
+                                : "border-white/15 bg-white/5 hover:bg-white/10"
+                            )}
+                          >
+                            {w} sem
+                            <span className="mt-0.5 block text-[10px] font-normal text-white/60">
+                              {w / 4} mes{w > 4 ? "es" : ""}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex items-start gap-3 rounded-2xl border border-mint/35 bg-mint/10 p-4">
+                    <CalendarDays className="mt-0.5 size-5 shrink-0 text-mint" />
+                    <div>
+                      <p className="text-sm font-semibold">Fin estimado del viaje</p>
+                      <p className="mt-1 text-sm text-white/80">
+                        {formatDateEs(startDate)}
+                        <span className="mx-2 text-white/40">→</span>
+                        <strong>{formatDateEs(endDate)}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <NavRow onBack={goBack} onNext={goNext} nextLabel="Ver programas" />
+                </StepShell>
+              )}
+
+              {step === 4 && (
+                <StepShell
+                  kicker="Programa"
+                  title="Elige cómo estudiar"
+                  subtitle="General, prep de exámenes o +30 — catálogo demo."
+                >
+                  {programs.length === 0 ? (
+                    <p className="text-sm text-white/70">
+                      No hay programas para esta combinación. Vuelve y cambia el destino.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {programs.map((p) => (
                         <button
-                          key={w}
+                          key={p.id}
                           type="button"
-                          onClick={() => setWeeks(w)}
+                          onClick={() => setProgramId(p.id)}
                           className={cn(
-                            "min-h-14 rounded-xl border px-2 py-3 text-center text-sm font-semibold active:scale-[0.98]",
-                            weeks === w
-                              ? "border-mint bg-mint/25"
-                              : "border-white/15 bg-white/5 hover:bg-white/10"
+                            "grid w-full overflow-hidden rounded-2xl border text-left transition active:scale-[0.995] sm:grid-cols-[160px_1fr]",
+                            programId === p.id
+                              ? "border-mint bg-mint/10 ring-1 ring-mint/50"
+                              : "border-white/15 bg-white/5 hover:border-white/30"
                           )}
                         >
-                          {w} sem
-                          <span className="mt-0.5 block text-[10px] font-normal text-white/60">
-                            {w / 4} mes{w > 4 ? "es" : ""}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                </div>
-                <div className="mt-5 flex items-start gap-3 rounded-2xl border border-mint/30 bg-mint/10 p-4">
-                  <CalendarDays className="mt-0.5 size-5 text-mint" />
-                  <div>
-                    <p className="text-sm font-semibold">Calculadora de fin de viaje</p>
-                    <p className="mt-1 text-sm text-white/80">
-                      Salida: <strong>{formatDateEs(startDate)}</strong>
-                      <br />
-                      Regreso estimado: <strong>{formatDateEs(endDate)}</strong>
-                    </p>
-                  </div>
-                </div>
-                <NavRow
-                  onBack={goBack}
-                  onNext={goNext}
-                  nextLabel="Ver programas"
-                />
-              </StepShell>
-            )}
-
-            {step === 4 && (
-              <StepShell
-                title="Elige tu programa"
-                subtitle="Sugerencias demo: idioma general, prep exámenes e idioma +30."
-              >
-                {programs.length === 0 ? (
-                  <p className="text-sm text-white/70">
-                    No hay programas mock para esta combinación. Vuelve y elige otro destino.
-                  </p>
-                ) : (
-                  <div className="grid gap-3">
-                    {programs.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setProgramId(p.id)}
-                        className={cn(
-                          "overflow-hidden rounded-2xl border text-left transition active:scale-[0.99]",
-                          programId === p.id
-                            ? "border-mint ring-2 ring-mint/40"
-                            : "border-white/15 hover:border-white/35"
-                        )}
-                      >
-                        <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr]">
-                          <div className="relative aspect-[16/10] sm:aspect-auto sm:min-h-[120px]">
+                          <div className="relative aspect-[16/10] sm:aspect-auto sm:min-h-full">
                             <Image
                               src={p.imageUrl}
                               alt={p.title}
                               fill
                               className="object-cover"
-                              sizes="(max-width: 640px) 100vw, 140px"
+                              sizes="(max-width: 640px) 100vw, 160px"
                             />
                           </div>
-                          <div className="space-y-1.5 p-3.5 sm:p-4">
-                            <p className="text-[11px] font-semibold tracking-wide text-mint uppercase">
+                          <div className="space-y-1.5 p-4">
+                            <p className="text-[11px] font-semibold tracking-[0.14em] text-mint uppercase">
                               {PROGRAM_KIND_LABELS[p.kind]} · {p.schoolName}
                             </p>
-                            <p className="font-heading text-base font-semibold sm:text-lg">{p.title}</p>
+                            <p className="font-heading text-lg font-semibold sm:text-xl">
+                              {p.title}
+                            </p>
                             <p className="text-sm leading-snug text-white/70">{p.summary}</p>
                             <p className="text-sm">
                               {p.lessonsPerWeek} lecciones/sem ·{" "}
@@ -616,318 +603,318 @@ export function BookingWizard() {
                               {p.highlights.map((h) => (
                                 <span
                                   key={h}
-                                  className="rounded-full bg-white/10 px-2 py-0.5 text-[11px]"
+                                  className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/80"
                                 >
                                   {h}
                                 </span>
                               ))}
                             </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <NavRow
+                    onBack={goBack}
+                    onNext={() => programId && goNext()}
+                    nextDisabled={!programId}
+                    nextLabel="Armar extras"
+                  />
+                </StepShell>
+              )}
+
+              {step === 5 && (
+                <StepShell
+                  kicker="Extras"
+                  title="Aloja, asegúrate y llega tranquilo"
+                  subtitle="El total se actualiza a la derecha (o abajo en móvil)."
+                >
+                  <ExtrasBlock
+                    title="Alojamiento"
+                    icon={<MapPin className="size-4" />}
+                  >
+                    {ACCOMMODATIONS.map((a) => (
+                      <ChoiceRow
+                        key={a.id}
+                        selected={accommodationId === a.id}
+                        onSelect={() => setAccommodationId(a.id)}
+                        title={a.label}
+                        description={a.description}
+                        price={
+                          a.perWeekUsd === 0
+                            ? "$0"
+                            : `+${formatUsd(a.perWeekUsd)}/sem`
+                        }
+                        imageUrl={a.imageUrl}
+                      />
                     ))}
+                  </ExtrasBlock>
+                  <ExtrasBlock title="Seguro de viaje" icon={<Shield className="size-4" />}>
+                    {INSURANCE_OPTIONS.map((i) => (
+                      <ChoiceRow
+                        key={i.id}
+                        selected={insuranceId === i.id}
+                        onSelect={() => setInsuranceId(i.id)}
+                        title={i.label}
+                        description={i.description}
+                        price={i.flatUsd === 0 ? "$0" : `+${formatUsd(i.flatUsd)}`}
+                      />
+                    ))}
+                  </ExtrasBlock>
+                  <ExtrasBlock
+                    title="Recepción aeropuerto"
+                    icon={<Plane className="size-4" />}
+                  >
+                    {AIRPORT_OPTIONS.map((a) => (
+                      <ChoiceRow
+                        key={a.id}
+                        selected={airportId === a.id}
+                        onSelect={() => setAirportId(a.id)}
+                        title={a.label}
+                        description={a.description}
+                        price={a.flatUsd === 0 ? "$0" : `+${formatUsd(a.flatUsd)}`}
+                      />
+                    ))}
+                  </ExtrasBlock>
+                  <NavRow onBack={goBack} onNext={goNext} nextLabel="Agregar tarjeta" />
+                </StepShell>
+              )}
+
+              {step === 6 && (
+                <StepShell
+                  kicker="Pago"
+                  title="Valida tu tarjeta"
+                  subtitle="Aún no cobramos. El cargo ocurre al enviar tus datos de contacto."
+                >
+                  <div className="mb-4 flex items-start gap-2 rounded-xl border border-white/15 bg-ink/40 px-3 py-2.5 text-xs text-white/70">
+                    <Lock className="mt-0.5 size-3.5 shrink-0 text-mint" />
+                    Demo:{" "}
+                    <code className="rounded bg-black/30 px-1">4242 4242 4242 4242</code>, MM/AA
+                    futuro, CVC de 3 dígitos.
                   </div>
-                )}
-                <NavRow
-                  onBack={goBack}
-                  onNext={() => programId && goNext()}
-                  nextDisabled={!programId}
-                  nextLabel="Armar extras"
-                />
-              </StepShell>
-            )}
-
-            {step === 5 && (
-              <StepShell
-                title="Extras para tu experiencia"
-                subtitle="Alojamiento, seguro y recepción en aeropuerto. El total se actualiza a la derecha."
-              >
-                <ExtrasGroup
-                  title="Alojamiento"
-                  icon={<MapPin className="size-4" />}
-                >
-                  {ACCOMMODATIONS.map((a) => (
-                    <ChoiceRow
-                      key={a.id}
-                      selected={accommodationId === a.id}
-                      onSelect={() => setAccommodationId(a.id)}
-                      title={a.label}
-                      description={a.description}
-                      price={
-                        a.perWeekUsd === 0
-                          ? "Incluido $0"
-                          : `+${formatUsd(a.perWeekUsd)}/sem`
-                      }
-                      imageUrl={a.imageUrl}
-                    />
-                  ))}
-                </ExtrasGroup>
-                <ExtrasGroup title="Seguro de viaje" icon={<Shield className="size-4" />}>
-                  {INSURANCE_OPTIONS.map((i) => (
-                    <ChoiceRow
-                      key={i.id}
-                      selected={insuranceId === i.id}
-                      onSelect={() => setInsuranceId(i.id)}
-                      title={i.label}
-                      description={i.description}
-                      price={i.flatUsd === 0 ? "$0" : `+${formatUsd(i.flatUsd)}`}
-                    />
-                  ))}
-                </ExtrasGroup>
-                <ExtrasGroup
-                  title="Recepción aeropuerto"
-                  icon={<Plane className="size-4" />}
-                >
-                  {AIRPORT_OPTIONS.map((a) => (
-                    <ChoiceRow
-                      key={a.id}
-                      selected={airportId === a.id}
-                      onSelect={() => setAirportId(a.id)}
-                      title={a.label}
-                      description={a.description}
-                      price={a.flatUsd === 0 ? "$0" : `+${formatUsd(a.flatUsd)}`}
-                    />
-                  ))}
-                </ExtrasGroup>
-                <NavRow onBack={goBack} onNext={goNext} nextLabel="Agregar tarjeta" />
-              </StepShell>
-            )}
-
-            {step === 6 && (
-              <StepShell
-                title="Valida tu tarjeta"
-                subtitle="Aún no cobramos. Solo guardamos el método de pago; el cargo ocurre al enviar tus datos de contacto."
-              >
-                <div className="mb-4 flex items-start gap-2 rounded-xl border border-white/15 bg-white/5 p-3 text-xs text-white/70">
-                  <Lock className="mt-0.5 size-3.5 shrink-0 text-mint" />
-                  Demo partner: valida con{" "}
-                  <code className="rounded bg-black/30 px-1">4242 4242 4242 4242</code>,
-                  cualquier MM/AA futuro y CVC de 3 dígitos. Stripe real se activa con env keys.
-                </div>
-                <div className="grid gap-3">
-                  <label className="space-y-1 text-sm">
-                    <span className="text-white/70">Nombre en la tarjeta</span>
-                    <input
+                  <div className="grid gap-3">
+                    <FieldInput
+                      label="Nombre en la tarjeta"
                       value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
-                      placeholder="Como aparece en la tarjeta"
+                      onChange={setCardName}
                       autoComplete="cc-name"
                     />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span className="text-white/70">Número</span>
-                    <input
+                    <FieldInput
+                      label="Número"
                       value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 font-mono text-base text-ink"
-                      placeholder="4242 4242 4242 4242"
-                      inputMode="numeric"
+                      onChange={setCardNumber}
                       autoComplete="cc-number"
+                      className="font-mono"
+                      placeholder="4242 4242 4242 4242"
                     />
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="space-y-1 text-sm">
-                      <span className="text-white/70">MM/AA</span>
-                      <input
+                    <div className="grid grid-cols-2 gap-3">
+                      <FieldInput
+                        label="MM/AA"
                         value={cardExp}
-                        onChange={(e) => setCardExp(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
-                        placeholder="12/28"
+                        onChange={setCardExp}
                         autoComplete="cc-exp"
+                        placeholder="12/28"
                       />
-                    </label>
-                    <label className="space-y-1 text-sm">
-                      <span className="text-white/70">CVC</span>
-                      <input
+                      <FieldInput
+                        label="CVC"
                         value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                        className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
-                        placeholder="123"
+                        onChange={setCardCvc}
                         autoComplete="cc-csc"
+                        placeholder="123"
                       />
-                    </label>
+                    </div>
                   </div>
-                </div>
-                {error && <ErrorBox message={error} />}
-                <NavRow
-                  onBack={goBack}
-                  onNext={validateCardAndContinue}
-                  nextLabel="Tarjeta validada — continuar"
-                  nextIcon={<CreditCard className="size-4" />}
-                />
-              </StepShell>
-            )}
+                  {error && <ErrorBox message={error} />}
+                  <NavRow
+                    onBack={goBack}
+                    onNext={validateCardAndContinue}
+                    nextLabel="Continuar"
+                    nextIcon={<CreditCard className="size-4" />}
+                  />
+                </StepShell>
+              )}
 
-            {step === 7 && (
-              <StepShell
-                title="Tus datos de contacto"
-                subtitle="Al enviar, cobramos la tarjeta y disparamos las 3 confirmaciones (cliente, escuela, MPE)."
-              >
-                {paymentMethodId && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl border border-mint/30 bg-mint/10 px-3 py-2 text-sm">
-                    <Check className="size-4 text-mint" />
-                    Tarjeta {cardBrand.toUpperCase()} ···· {cardLast4} lista para cobrar
-                  </div>
-                )}
-                <div className="grid gap-3">
-                  <label className="space-y-1 text-sm">
-                    <span className="text-white/70">Nombre completo</span>
-                    <input
+              {step === 7 && (
+                <StepShell
+                  kicker="Contacto"
+                  title="Tus datos para confirmar"
+                  subtitle="Al enviar cobramos y disparamos las 3 confirmaciones."
+                >
+                  {paymentMethodId && (
+                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-mint/35 bg-mint/10 px-3 py-2.5 text-sm">
+                      <Check className="size-4 text-mint" />
+                      {cardBrand.toUpperCase()} ···· {cardLast4} lista
+                    </div>
+                  )}
+                  <div className="grid gap-3">
+                    <FieldInput
+                      label="Nombre completo"
                       value={contactName}
-                      onChange={(e) => setContactName(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
+                      onChange={setContactName}
                       autoComplete="name"
                     />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span className="text-white/70">Email</span>
-                    <input
-                      type="email"
+                    <FieldInput
+                      label="Email"
                       value={contactEmail}
-                      onChange={(e) => setContactEmail(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
+                      onChange={setContactEmail}
                       autoComplete="email"
+                      type="email"
                     />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span className="text-white/70">Teléfono</span>
-                    <input
-                      type="tel"
+                    <FieldInput
+                      label="Teléfono"
                       value={contactPhone}
-                      onChange={(e) => setContactPhone(e.target.value)}
-                      className="h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink"
-                      placeholder="+57 300 000 0000"
+                      onChange={setContactPhone}
                       autoComplete="tel"
+                      placeholder="+57 300 000 0000"
                     />
-                  </label>
-                </div>
-                {error && <ErrorBox message={error} />}
-                <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+                  </div>
+                  {error && <ErrorBox message={error} />}
+                  <div className="mt-5 flex flex-col-reverse gap-2.5 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={goBack}
+                      className={cn(
+                        buttonVariants({ size: "lg", variant: "outline" }),
+                        "min-h-12 h-12 w-full border-white/30 bg-transparent text-white hover:bg-white/10 sm:w-auto"
+                      )}
+                    >
+                      <ArrowLeft className="size-4" />
+                      Atrás
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={chargeOnContact}
+                      className={cn(
+                        buttonVariants({ size: "lg" }),
+                        "min-h-12 h-12 w-full flex-1 gap-2 border-0 text-ink gradient-cta disabled:opacity-50"
+                      )}
+                    >
+                      {loading ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="size-4" />
+                      )}
+                      {loading
+                        ? "Confirmando…"
+                        : `Confirmar y pagar ${formatUsd(pricing.total)}`}
+                    </button>
+                  </div>
+                </StepShell>
+              )}
+
+              {step === 8 && bookingId && (
+                <StepShell
+                  kicker="Confirmación"
+                  title="¡Tu experiencia está reservada!"
+                  subtitle={`${bookingId} · ${paymentMode === "stripe" ? "Stripe" : "demo mock"} · emails vía ${emailProvider === "resend" ? "Resend" : "vista previa"}`}
+                >
+                  <div className="mb-5 flex items-start gap-3 rounded-2xl border border-mint/40 bg-mint/15 p-4">
+                    <Check className="mt-0.5 size-6 shrink-0 text-mint" />
+                    <div>
+                      <p className="font-heading text-xl font-semibold">
+                        {contactName}, bienvenido a Marco Polo Experience
+                      </p>
+                      <p className="mt-1 text-sm text-white/75">
+                        {destination?.city} · {program?.title} · {formatDateEs(startDate)} →{" "}
+                        {formatDateEs(endDate)}
+                      </p>
+                    </div>
+                  </div>
+                  <h3 className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
+                    <Mail className="size-4 text-mint" />
+                    Tres correos
+                  </h3>
+                  <div className="space-y-3">
+                    {emails.map((e) => (
+                      <details
+                        key={e.id}
+                        className="rounded-xl border border-white/15 bg-black/25 open:bg-black/35"
+                        open={e.id === "cliente"}
+                      >
+                        <summary className="cursor-pointer list-none px-4 py-3">
+                          <p className="text-[11px] font-semibold tracking-wide text-mint uppercase">
+                            {e.id === "cliente"
+                              ? "1 · Cliente"
+                              : e.id === "escuela"
+                                ? "2 · Escuela"
+                                : "3 · Marco Polo interno"}
+                          </p>
+                          <p className="text-sm font-medium">{e.subject}</p>
+                          <p className="text-xs text-white/55">Para: {e.to}</p>
+                        </summary>
+                        <pre className="overflow-x-auto whitespace-pre-wrap border-t border-white/10 px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">
+                          {e.body}
+                        </pre>
+                      </details>
+                    ))}
+                  </div>
                   <button
                     type="button"
-                    onClick={goBack}
-                    className={cn(
-                      buttonVariants({ size: "lg", variant: "outline" }),
-                      "min-h-12 h-12 w-full border-white/30 bg-transparent text-white hover:bg-white/10 sm:w-auto"
-                    )}
-                  >
-                    <ArrowLeft className="size-4" />
-                    Atrás
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={chargeOnContact}
+                    onClick={() => window.location.assign("/")}
                     className={cn(
                       buttonVariants({ size: "lg" }),
-                      "min-h-12 h-12 w-full flex-1 gap-2 border-0 text-ink gradient-cta disabled:opacity-50"
+                      "mt-6 h-12 border-0 text-ink gradient-cta"
                     )}
                   >
-                    {loading ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="size-4" />
-                    )}
-                    {loading
-                      ? "Cobrando…"
-                      : `Confirmar y pagar ${formatUsd(pricing.total)}`}
+                    Nueva reserva demo
                   </button>
-                </div>
-              </StepShell>
-            )}
+                </StepShell>
+              )}
+            </div>
 
-            {step === 8 && bookingId && (
-              <StepShell
-                title="¡Experiencia reservada!"
-                subtitle={`Booking ${bookingId} · cobro ${paymentMode === "stripe" ? "Stripe" : "demo mock"} · emails vía ${emailProvider === "resend" ? "Resend" : "log/UI"}`}
-              >
-                <div className="mb-5 flex items-start gap-3 rounded-2xl border border-mint/40 bg-mint/15 p-4">
-                  <Check className="mt-0.5 size-6 text-mint" />
-                  <div>
-                    <p className="font-heading text-xl font-semibold">
-                      {contactName}, ya eres parte de Marco Polo Experience
-                    </p>
-                    <p className="mt-1 text-sm text-white/75">
-                      {destination?.city} · {program?.title} · {formatDateEs(startDate)} →{" "}
-                      {formatDateEs(endDate)}
-                    </p>
+            {showSidebar && (
+              <aside className="hidden lg:sticky lg:top-6 lg:block">
+                <div className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white text-ink shadow-[0_28px_70px_-36px_rgba(0,0,0,0.65)]">
+                  {destination && (
+                    <div className="relative aspect-[16/10]">
+                      <Image
+                        src={destination.imageUrl}
+                        alt={destination.city}
+                        fill
+                        className="object-cover"
+                        sizes="340px"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-ink/80 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                        <p className="text-[11px] font-semibold tracking-[0.16em] text-mint uppercase">
+                          Tu paquete
+                        </p>
+                        <p className="font-heading text-2xl font-semibold">
+                          {destination.city}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="p-5">
+                    <PriceBreakdown
+                      programTitle={program?.title}
+                      weeks={weeks}
+                      pricing={pricing}
+                    />
                   </div>
                 </div>
-
-                <h3 className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
-                  <Mail className="size-4 text-mint" />
-                  Tres correos disparados
-                </h3>
-                <div className="space-y-3">
-                  {emails.map((e) => (
-                    <details
-                      key={e.id}
-                      className="rounded-xl border border-white/15 bg-black/20 open:bg-black/30"
-                      open={e.id === "cliente"}
-                    >
-                      <summary className="cursor-pointer list-none px-4 py-3">
-                        <p className="text-[11px] font-semibold tracking-wide text-mint uppercase">
-                          {e.id === "cliente"
-                            ? "1 · Cliente"
-                            : e.id === "escuela"
-                              ? "2 · Escuela"
-                              : "3 · Marco Polo interno"}
-                        </p>
-                        <p className="text-sm font-medium">{e.subject}</p>
-                        <p className="text-xs text-white/55">Para: {e.to}</p>
-                      </summary>
-                      <pre className="overflow-x-auto whitespace-pre-wrap border-t border-white/10 px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">
-                        {e.body}
-                      </pre>
-                    </details>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => window.location.assign("/")}
-                  className={cn(
-                    buttonVariants({ size: "lg" }),
-                    "mt-6 h-11 border-0 text-ink gradient-cta"
-                  )}
-                >
-                  Nueva reserva demo
-                </button>
-              </StepShell>
+              </aside>
             )}
           </div>
-
-          {showSidebar && (
-            <aside className="hidden h-fit rounded-[1.6rem] border border-white/15 bg-white p-5 text-ink shadow-[0_24px_60px_-30px_rgba(0,0,0,0.55)] lg:sticky lg:top-6 lg:block">
-              <PricePanel
-                city={destination?.city}
-                programTitle={program?.title}
-                weeks={weeks}
-                imageUrl={destination?.imageUrl}
-                pricing={pricing}
-              />
-            </aside>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Mobile sticky / collapsible price bar */}
       {showSidebar && (
         <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden">
           {priceOpen && (
             <button
               type="button"
               aria-label="Cerrar resumen"
-              className="absolute inset-x-0 bottom-full h-[100dvh] bg-black/45"
+              className="absolute inset-x-0 bottom-full h-[100dvh] bg-ink/55"
               onClick={() => setPriceOpen(false)}
             />
           )}
-          <div className="border-t border-white/10 bg-white text-ink shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.45)]">
+          <div className="animate-sheet-up border-t border-white/10 bg-white text-ink shadow-[0_-16px_50px_-18px_rgba(0,0,0,0.5)]">
             <button
               type="button"
               onClick={() => setPriceOpen((v) => !v)}
-              className="flex w-full items-center justify-between gap-3 px-4 pt-3 pb-2 text-left"
+              className="flex w-full items-center justify-between gap-3 px-4 pt-3.5 pb-2 text-left"
             >
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold tracking-wide text-indigo uppercase">
@@ -948,22 +935,18 @@ export function BookingWizard() {
                 )}
               </div>
             </button>
-            {priceOpen && (
-              <div className="max-h-[55dvh] overflow-y-auto border-t border-border px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
-                <PricePanel
-                  city={destination?.city}
+            {priceOpen ? (
+              <div className="max-h-[50dvh] overflow-y-auto border-t border-border px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))] pt-3">
+                <PriceBreakdown
                   programTitle={program?.title}
                   weeks={weeks}
-                  imageUrl={destination?.imageUrl}
                   pricing={pricing}
-                  compact
                 />
               </div>
-            )}
-            {!priceOpen && (
-              <div className="px-4 pb-[calc(0.65rem+env(safe-area-inset-bottom))] text-center text-[11px] text-muted-foreground">
+            ) : (
+              <p className="px-4 pb-[calc(0.7rem+env(safe-area-inset-bottom))] text-center text-[11px] text-muted-foreground">
                 Toca para ver el desglose
-              </div>
+              </p>
             )}
           </div>
         </div>
@@ -972,19 +955,98 @@ export function BookingWizard() {
   );
 }
 
+function BrandHeader() {
+  return (
+    <header className="flex items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-mint text-ink">
+          <Compass className="size-4" strokeWidth={2.5} />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate font-heading text-base font-semibold tracking-tight sm:text-lg">
+            Marco Polo Experience
+          </p>
+          <p className="truncate text-[11px] font-medium tracking-wide text-white/55 uppercase">
+            Hermana de Marco Polo Education
+          </p>
+        </div>
+      </div>
+      <a
+        href="https://www.marcopoloeducation.com"
+        target="_blank"
+        rel="noreferrer"
+        className="shrink-0 rounded-full bg-white/10 px-3 py-2.5 text-xs font-semibold ring-1 ring-white/25 transition hover:bg-white/15 sm:px-4 sm:text-sm"
+      >
+        Asesoría MPE
+      </a>
+    </header>
+  );
+}
+
+function ProgressTrail({ step, label }: { step: number; label: string }) {
+  return (
+    <nav className="mt-5 mb-1" aria-label="Progreso">
+      <div className="flex items-center justify-between gap-3 sm:hidden">
+        <p className="text-sm font-semibold">
+          Paso {step}
+          <span className="text-white/45"> / {STEPS.length}</span>
+        </p>
+        <p className="text-xs font-medium text-mint">{label}</p>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10 sm:hidden">
+        <div
+          className="h-full rounded-full bg-mint transition-all duration-300"
+          style={{ width: `${(step / STEPS.length) * 100}%` }}
+        />
+      </div>
+      <ol className="hidden items-center gap-1 sm:flex">
+        {STEPS.map((s) => (
+          <li key={s.id} className="flex items-center gap-1">
+            <span
+              className={cn(
+                "flex size-7 items-center justify-center rounded-full text-[11px] font-bold",
+                step === s.id
+                  ? "bg-mint text-ink"
+                  : step > s.id
+                    ? "bg-white/20 text-white"
+                    : "bg-white/5 text-white/35"
+              )}
+            >
+              {step > s.id ? <Check className="size-3.5" /> : s.id}
+            </span>
+            <span
+              className={cn(
+                "mr-1 hidden text-[11px] font-medium md:inline",
+                step === s.id ? "text-white" : "text-white/40"
+              )}
+            >
+              {s.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
 function StepShell({
+  kicker,
   title,
   subtitle,
   children,
 }: {
+  kicker: string;
   title: string;
   subtitle: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-4 sm:space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 className="font-heading text-[1.35rem] leading-tight font-semibold tracking-tight sm:text-3xl">
+        <p className="text-[11px] font-semibold tracking-[0.2em] text-mint uppercase">
+          {kicker}
+        </p>
+        <h1 className="mt-1.5 font-heading text-[1.45rem] leading-tight font-semibold tracking-tight sm:text-3xl">
           {title}
         </h1>
         <p className="mt-1.5 text-sm leading-relaxed text-white/70">{subtitle}</p>
@@ -994,18 +1056,13 @@ function StepShell({
   );
 }
 
-function PricePanel({
-  city,
+function PriceBreakdown({
   programTitle,
   weeks,
-  imageUrl,
   pricing,
-  compact = false,
 }: {
-  city?: string;
   programTitle?: string;
   weeks: number;
-  imageUrl?: string;
   pricing: {
     courseTotal: number;
     accommodationTotal: number;
@@ -1013,65 +1070,25 @@ function PricePanel({
     airportTotal: number;
     total: number;
   };
-  compact?: boolean;
 }) {
   return (
     <div>
-      {!compact && (
-        <>
-          <p className="text-xs font-semibold tracking-[0.16em] text-indigo uppercase">
-            Tu paquete
-          </p>
-          <h2 className="mt-1 font-heading text-2xl font-semibold">{city ?? "Destino"}</h2>
-          <p className="text-sm text-muted-foreground">
-            {programTitle ?? "Programa"} · {weeks} semanas
-          </p>
-          {imageUrl && (
-            <div className="relative mt-4 aspect-[16/10] overflow-hidden rounded-xl">
-              <Image
-                src={imageUrl}
-                alt={city ?? "Destino"}
-                fill
-                className="object-cover"
-                sizes="320px"
-              />
-            </div>
-          )}
-        </>
-      )}
-      {compact && (
-        <p className="mb-3 text-sm text-muted-foreground">
-          {programTitle ?? "Programa"} · {weeks} semanas
-        </p>
-      )}
-      <div className={cn("space-y-2 text-sm", !compact && "mt-4")}>
+      <p className="text-sm text-muted-foreground">
+        {programTitle ?? "Programa"} · {weeks} semanas
+      </p>
+      <div className="mt-3 space-y-2 text-sm">
         <Row label="Curso" value={formatUsd(pricing.courseTotal)} />
         <Row label="Alojamiento" value={formatUsd(pricing.accommodationTotal)} />
         <Row label="Seguro" value={formatUsd(pricing.insuranceTotal)} />
         <Row label="Aeropuerto" value={formatUsd(pricing.airportTotal)} />
-        <div className="flex justify-between border-t border-border pt-2 font-heading text-lg font-semibold">
+        <div className="flex justify-between border-t border-border pt-2.5 font-heading text-lg font-semibold">
           <span>Total</span>
           <span>{formatUsd(pricing.total)}</span>
         </div>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Precios demo (mock). Edvisor será la fuente de verdad de tarifas reales.
+        Precios demo. Edvisor será la fuente de tarifas reales.
       </p>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-medium text-white/70">{label}</p>
-      {children}
     </div>
   );
 }
@@ -1090,7 +1107,7 @@ function NavRow({
   nextIcon?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col-reverse gap-2.5 pt-3 sm:flex-row">
+    <div className="flex flex-col-reverse gap-2.5 pt-4 sm:flex-row">
       {onBack && (
         <button
           type="button"
@@ -1129,8 +1146,8 @@ function FrictionPill({ level }: { level: "low" | "medium" | "high" }) {
   };
   const color = {
     low: "bg-mint/25 text-mint",
-    medium: "bg-amber-400/20 text-amber-100",
-    high: "bg-rose-400/20 text-rose-100",
+    medium: "bg-amber-300/20 text-amber-100",
+    high: "bg-rose-400/25 text-rose-100",
   };
   return (
     <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", color[level])}>
@@ -1139,7 +1156,7 @@ function FrictionPill({ level }: { level: "low" | "medium" | "high" }) {
   );
 }
 
-function ExtrasGroup({
+function ExtrasBlock({
   title,
   icon,
   children,
@@ -1149,12 +1166,12 @@ function ExtrasGroup({
   children: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 space-y-2">
+    <div className="mb-5 space-y-2.5">
       <p className="flex items-center gap-2 text-sm font-semibold">
         {icon}
         {title}
       </p>
-      <div className="space-y-2.5">{children}</div>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
@@ -1180,7 +1197,9 @@ function ChoiceRow({
       onClick={onSelect}
       className={cn(
         "flex min-h-14 w-full gap-3 rounded-xl border p-3.5 text-left transition active:scale-[0.99]",
-        selected ? "border-mint bg-mint/15" : "border-white/15 bg-white/5 hover:bg-white/10"
+        selected
+          ? "border-mint bg-mint/15"
+          : "border-white/15 bg-white/5 hover:bg-white/10"
       )}
     >
       {imageUrl && (
@@ -1190,10 +1209,47 @@ function ChoiceRow({
       )}
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold leading-snug">{title}</span>
-        <span className="mt-0.5 block text-xs leading-snug text-white/65">{description}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-white/65">
+          {description}
+        </span>
       </span>
       <span className="shrink-0 self-center text-sm font-semibold text-mint">{price}</span>
     </button>
+  );
+}
+
+function FieldInput({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+  type = "text",
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  autoComplete?: string;
+  placeholder?: string;
+  type?: string;
+  className?: string;
+}) {
+  return (
+    <label className="block space-y-1.5 text-sm">
+      <span className="text-white/65">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        className={cn(
+          "h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink outline-none focus:ring-2 focus:ring-mint",
+          className
+        )}
+      />
+    </label>
   );
 }
 
