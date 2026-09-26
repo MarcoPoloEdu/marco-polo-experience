@@ -6,6 +6,7 @@ import { CourseGallery } from "@/components/course/CourseGallery";
 import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
 import { getLanguageLabel, getSchool, schools } from "@/lib/data/schools";
 import { formatUsd } from "@/lib/pricing";
+import { isStripeConfigured } from "@/lib/stripe";
 import type { AccommodationType, DurationWeeks } from "@/lib/types";
 
 interface CoursePageProps {
@@ -15,6 +16,7 @@ interface CoursePageProps {
     semanas?: string;
     alojamiento?: string;
     seguro?: string;
+    passport?: string;
   }>;
 }
 
@@ -47,6 +49,8 @@ export default async function CoursePage({
   const initialWeeks = parseWeeks(query.semanas);
   const initialAccommodation = parseAccommodation(query.alojamiento);
   const initialGuardMe = query.seguro !== "0";
+  const passport = query.passport ?? "COL";
+  const stripeConfigured = isStripeConfigured();
 
   return (
     <main className="flex-1">
@@ -56,7 +60,7 @@ export default async function CoursePage({
         <div className="space-y-7">
           <div className="space-y-3">
             <Link
-              href={`/search?passport=COL&language=${school.language}`}
+              href={`/search?passport=${encodeURIComponent(passport)}&destination=${school.destinationSlug}&language=${school.language}`}
               className="text-sm font-medium text-indigo hover:underline"
             >
               ← Volver a resultados
@@ -111,6 +115,7 @@ export default async function CoursePage({
           initialWeeks={initialWeeks}
           initialAccommodation={initialAccommodation}
           initialGuardMe={initialGuardMe}
+          stripeConfigured={stripeConfigured}
         />
       </div>
 

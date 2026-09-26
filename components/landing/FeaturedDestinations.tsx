@@ -34,7 +34,7 @@ export function FeaturedDestinations() {
           {destinations.map((dest, index) => (
             <Link
               key={dest.slug}
-              href={`/search?passport=COL&language=${dest.languages[0]}`}
+              href={`/search?passport=COL&destination=${dest.slug}&language=${dest.languages[0]}`}
               className="group relative block min-h-[380px] overflow-hidden rounded-[1.5rem]"
               style={{ animationDelay: `${index * 100}ms` }}
             >

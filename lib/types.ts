@@ -4,8 +4,19 @@ export type PassportCode =
   | "PER"
   | "CHL"
   | "ARG"
-  | "ESP"
-  | "USA";
+  | "BRA"
+  | "ECU"
+  | "BOL"
+  | "URY"
+  | "PRY"
+  | "CRI"
+  | "PAN"
+  | "GTM"
+  | "HND"
+  | "SLV"
+  | "NIC"
+  | "DOM"
+  | "VEN";
 
 export type LanguageCode =
   | "german"
@@ -59,4 +70,10 @@ export interface PricingBreakdown {
   insuranceTotal: number;
   total: number;
   weeks: DurationWeeks;
+}
+
+export interface GuestDetails {
+  name: string;
+  email: string;
+  phone: string;
 }

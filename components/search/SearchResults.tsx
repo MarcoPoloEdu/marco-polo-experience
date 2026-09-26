@@ -9,12 +9,16 @@ interface SearchResultsProps {
   schools: School[];
   languageLabel?: string;
   passportLabel?: string;
+  destinationLabel?: string;
+  disclaimer?: string;
 }
 
 export function SearchResults({
   schools,
   languageLabel,
   passportLabel,
+  destinationLabel,
+  disclaimer,
 }: SearchResultsProps) {
   const [weeks, setWeeks] = useState<DurationWeeks>(4);
 
@@ -34,9 +38,15 @@ export function SearchResults({
         </h1>
         <p className="text-muted-foreground">
           {countLabel}
-          {languageLabel ? ` de ${languageLabel}` : ""}
-          {passportLabel ? ` · Pasaporte: ${passportLabel}` : ""}
+          {destinationLabel ? ` en ${destinationLabel}` : ""}
+          {languageLabel ? ` · ${languageLabel}` : ""}
+          {passportLabel ? ` · Nacionalidad: ${passportLabel}` : ""}
         </p>
+        {disclaimer && (
+          <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground/80">
+            {disclaimer}
+          </p>
+        )}
       </div>
 
       <DurationFilter value={weeks} onChange={setWeeks} />
@@ -47,7 +57,8 @@ export function SearchResults({
             No hay escuelas para esta búsqueda
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Prueba otro idioma desde el inicio — Berlín, La Valeta y Londres son nuestros hubs destacados.
+            Prueba otro destino desde el inicio — Berlín, La Valeta y Londres son
+            nuestros hubs destacados.
           </p>
         </div>
       ) : (

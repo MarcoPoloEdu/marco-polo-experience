@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, CreditCard, Lock } from "lucide-react";
+import { CheckCircle2, CreditCard, Lock, Loader2 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
@@ -22,6 +22,7 @@ interface CheckoutBuilderProps {
   initialWeeks?: DurationWeeks;
   initialAccommodation?: AccommodationType;
   initialGuardMe?: boolean;
+  stripeConfigured?: boolean;
 }
 
 export function CheckoutBuilder({
@@ -30,11 +31,17 @@ export function CheckoutBuilder({
   initialWeeks = 4,
   initialAccommodation = "homestay",
   initialGuardMe = true,
+  stripeConfigured = false,
 }: CheckoutBuilderProps) {
   const [weeks, setWeeks] = useState<DurationWeeks>(initialWeeks);
   const [accommodation, setAccommodation] =
     useState<AccommodationType>(initialAccommodation);
   const [guardMe, setGuardMe] = useState(initialGuardMe);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const pricing = useMemo(
     () =>
@@ -47,12 +54,65 @@ export function CheckoutBuilder({
     [school.weeklyPrice, weeks, accommodation, guardMe]
   );
 
-  const confirmHref = `/courses/${school.slug}?${new URLSearchParams({
-    reservado: "1",
-    semanas: String(weeks),
-    alojamiento: accommodation,
-    seguro: guardMe ? "1" : "0",
-  }).toString()}`;
+  const guestValid =
+    name.trim().length >= 2 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
+    phone.trim().length >= 7;
+
+  async function handleCheckout() {
+    setError(null);
+
+    if (!stripeConfigured) {
+      setError(
+        "Stripe no está configurado. Agrega STRIPE_SECRET_KEY y NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY en el entorno (modo test) y reinicia el servidor."
+      );
+      return;
+    }
+
+    if (!guestValid) {
+      setError("Completa nombre, email y teléfono antes de pagar.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          schoolSlug: school.slug,
+          weeks,
+          accommodation,
+          guardMe,
+          guest: {
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+          },
+        }),
+      });
+
+      const data = (await res.json()) as {
+        url?: string;
+        error?: string;
+        configured?: boolean;
+      };
+
+      if (!res.ok || !data.url) {
+        setError(
+          data.error ??
+            "No pudimos iniciar Stripe Checkout. Revisa la configuración e inténtalo de nuevo."
+        );
+        setLoading(false);
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch {
+      setError("Error de red al contactar Stripe. Inténtalo de nuevo.");
+      setLoading(false);
+    }
+  }
 
   if (reserved) {
     return (
@@ -67,12 +127,12 @@ export function CheckoutBuilder({
           <p className="text-sm leading-relaxed text-muted-foreground">
             Tu cupo en{" "}
             <span className="font-semibold text-ink">{school.name}</span> quedó
-            reservado por {weeks} semanas. En la versión final te enviamos el correo —
-            este MVP solo muestra la confirmación (sin cobro real con Stripe).
+            reservado por {weeks} semanas. Te enviamos el detalle del pago a tu correo
+            (recibo de Stripe en modo test).
           </p>
           <div className="w-full rounded-xl border border-border bg-muted/50 p-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total asegurado</span>
+              <span className="text-muted-foreground">Total</span>
               <span className="font-semibold text-ink">{formatUsd(pricing.total)}</span>
             </div>
           </div>
@@ -161,6 +221,45 @@ export function CheckoutBuilder({
           <Switch checked={guardMe} onCheckedChange={setGuardMe} />
         </div>
 
+        <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-3">
+          <p className="text-sm font-semibold text-ink">Tus datos (checkout invitado)</p>
+          <div className="space-y-2">
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Nombre</span>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nombre completo"
+                autoComplete="name"
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-indigo focus:ring-2 focus:ring-indigo/20"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
+                autoComplete="email"
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-indigo focus:ring-2 focus:ring-indigo/20"
+              />
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">Teléfono</span>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+57 300 000 0000"
+                autoComplete="tel"
+                className="h-10 w-full rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-indigo focus:ring-2 focus:ring-indigo/20"
+              />
+            </label>
+          </div>
+        </div>
+
         <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-3 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Curso ({weeks} semanas)</span>
@@ -180,21 +279,45 @@ export function CheckoutBuilder({
           </div>
         </div>
 
-        <a
-          href={confirmHref}
+        {!stripeConfigured && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
+            Para activar el pago, configura{" "}
+            <code className="font-mono">STRIPE_SECRET_KEY</code> y{" "}
+            <code className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code>{" "}
+            (modo test) en el entorno. El flujo de Checkout ya está implementado.
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs leading-relaxed text-destructive"
+          >
+            {error}
+          </div>
+        )}
+
+        <button
+          type="button"
           data-testid="book-now"
+          disabled={loading || !guestValid}
+          onClick={handleCheckout}
           className={cn(
             buttonVariants({ size: "lg" }),
-            "h-12 w-full gap-2 border-0 text-ink gradient-cta hover:opacity-95"
+            "h-12 w-full gap-2 border-0 text-ink gradient-cta hover:opacity-95 disabled:opacity-50"
           )}
         >
-          <CreditCard className="size-4" />
-          Reservar ahora con tarjeta
-        </a>
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <CreditCard className="size-4" />
+          )}
+          {loading ? "Redirigiendo a Stripe…" : "Pagar con Stripe Checkout"}
+        </button>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
           <Lock className="size-3.5" />
-          Pago seguro impulsado por Stripe
+          Pago seguro con Stripe Checkout (modo test)
         </p>
       </div>
     </div>

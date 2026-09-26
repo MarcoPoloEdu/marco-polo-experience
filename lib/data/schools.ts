@@ -6,8 +6,25 @@ export const PASSPORT_OPTIONS: { value: PassportCode; label: string }[] = [
   { value: "PER", label: "Perú" },
   { value: "CHL", label: "Chile" },
   { value: "ARG", label: "Argentina" },
-  { value: "ESP", label: "España" },
-  { value: "USA", label: "Estados Unidos" },
+  { value: "BRA", label: "Brasil" },
+  { value: "ECU", label: "Ecuador" },
+  { value: "BOL", label: "Bolivia" },
+  { value: "URY", label: "Uruguay" },
+  { value: "PRY", label: "Paraguay" },
+  { value: "CRI", label: "Costa Rica" },
+  { value: "PAN", label: "Panamá" },
+  { value: "GTM", label: "Guatemala" },
+  { value: "HND", label: "Honduras" },
+  { value: "SLV", label: "El Salvador" },
+  { value: "NIC", label: "Nicaragua" },
+  { value: "DOM", label: "República Dominicana" },
+  { value: "VEN", label: "Venezuela" },
+];
+
+export const DESTINATION_OPTIONS = [
+  { value: "berlin" as const, label: "Berlín · Alemán / Inglés" },
+  { value: "valletta" as const, label: "La Valeta · Inglés" },
+  { value: "london" as const, label: "Londres · Inglés" },
 ];
 
 export const LANGUAGE_OPTIONS: { value: LanguageCode; label: string }[] = [
@@ -217,12 +234,27 @@ export function getLanguageLabel(code: LanguageCode): string {
   return LANGUAGE_OPTIONS.find((l) => l.value === code)?.label ?? code;
 }
 
+export function getPassportLabel(code?: string | null): string | undefined {
+  if (!code) return undefined;
+  return PASSPORT_OPTIONS.find((p) => p.value === code)?.label;
+}
+
+export function isPassportCode(value: string): value is PassportCode {
+  return PASSPORT_OPTIONS.some((p) => p.value === value);
+}
+
 export function filterSchools(params: {
   language?: string | null;
   passport?: string | null;
+  destination?: string | null;
 }): School[] {
   const language = params.language?.toLowerCase();
+  const destination = params.destination?.toLowerCase();
   let results = [...schools];
+
+  if (destination) {
+    results = results.filter((s) => s.destinationSlug === destination);
+  }
 
   if (language) {
     results = results.filter((s) => s.language === language);
