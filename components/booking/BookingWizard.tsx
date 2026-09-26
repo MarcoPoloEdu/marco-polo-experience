@@ -21,6 +21,13 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ACCOMMODATIONS,
   AIRPORT_OPTIONS,
   INSURANCE_OPTIONS,
@@ -110,6 +117,14 @@ export function BookingWizard() {
   const [paymentMode, setPaymentMode] = useState<"stripe" | "mock" | null>(null);
   const [emailProvider, setEmailProvider] = useState<"resend" | "log" | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
+
+  const nationalityItems = useMemo(
+    () =>
+      Object.fromEntries(
+        NATIONALITIES.map((n) => [n.code, `${n.flag} ${n.label}`])
+      ),
+    []
+  );
 
   const currentStepMeta = STEPS.find((s) => s.id === step) ?? STEPS[0];
   const endDate = useMemo(() => addWeeks(startDate, weeks), [startDate, weeks]);
@@ -350,28 +365,34 @@ export function BookingWizard() {
               <p className="text-sm font-medium text-white/80">
                 Empieza por tu pasaporte y el idioma que quieres vivir
               </p>
-              <div className="space-y-3">
-                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
-                  Nacionalidad
-                </p>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                  {NATIONALITIES.map((n) => (
-                    <button
-                      key={n.code}
-                      type="button"
-                      onClick={() => setNationality(n.code)}
-                      className={cn(
-                        "min-h-12 rounded-xl border px-3 py-2.5 text-left text-sm transition active:scale-[0.98]",
-                        nationality === n.code
-                          ? "border-mint bg-mint text-ink shadow-[0_0_0_1px_rgba(0,230,153,0.4)]"
-                          : "border-white/20 bg-ink/30 text-white hover:bg-white/10"
-                      )}
-                    >
-                      <span className="mr-1">{n.flag}</span>
-                      {n.label}
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="nationality-select"
+                  className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase"
+                >
+                  Nacionalidad / País
+                </label>
+                <Select
+                  value={nationality || undefined}
+                  onValueChange={(v) => {
+                    if (v) setNationality(v as NationalityCode);
+                  }}
+                  items={nationalityItems}
+                >
+                  <SelectTrigger
+                    id="nationality-select"
+                    className="h-12 w-full border-white/20 bg-white/95 text-base text-ink"
+                  >
+                    <SelectValue placeholder="Elige tu país de pasaporte" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NATIONALITIES.map((n) => (
+                      <SelectItem key={n.code} value={n.code}>
+                        {n.flag} {n.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-3">
                 <p className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
