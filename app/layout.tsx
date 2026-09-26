@@ -15,11 +15,11 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: {
-    default: "Marco Polo Experience — Cursos de idiomas en el exterior",
+    default: "Marco Polo Experience — Reserva tu inmersión",
     template: "%s · Marco Polo Experience",
   },
   description:
-    "Empresa hermana de Marco Polo Education. Reserva cursos cortos de idiomas en Berlín, La Valeta y Londres con precio transparente.",
+    "Ecommerce LatAm-first para cursos cortos de idiomas en el exterior. Hermana de Marco Polo Education.",
 };
 
 export default function RootLayout({

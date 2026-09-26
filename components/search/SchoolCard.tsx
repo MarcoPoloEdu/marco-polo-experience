@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,7 +18,7 @@ export function SchoolCard({ school, weeks }: SchoolCardProps) {
 
   return (
     <article className="group overflow-hidden rounded-[1.4rem] border border-border bg-white shadow-[0_18px_40px_-30px_rgba(38,38,59,0.5)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_50px_-28px_rgba(38,38,59,0.55)]">
-      <Link href={href} className="block focus-visible:outline-none">
+      <a href={href} className="block focus-visible:outline-none" data-testid="school-card">
         <div className="relative aspect-[16/10] overflow-hidden bg-muted">
           <Image
             src={school.images[0]}
@@ -76,7 +75,7 @@ export function SchoolCard({ school, weeks }: SchoolCardProps) {
             </span>
           </div>
         </div>
-      </Link>
+      </a>
     </article>
   );
 }

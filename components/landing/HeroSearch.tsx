@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Search, ShieldAlert } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
@@ -26,7 +25,11 @@ import { cn } from "@/lib/utils";
 
 type WizardStep = "nacionalidad" | "destino" | "visa" | "bloqueado";
 
-function searchHref(passport: PassportCode, destination: DestinationSlug) {
+function searchHref(
+  passport: PassportCode,
+  destination: DestinationSlug,
+  opts?: { visaOk?: boolean }
+) {
   const dest = getDestination(destination);
   const language = dest?.languages[0] ?? "english";
   const params = new URLSearchParams({
@@ -34,6 +37,7 @@ function searchHref(passport: PassportCode, destination: DestinationSlug) {
     destination,
     language,
   });
+  if (opts?.visaOk) params.set("visa", "ok");
   return `/search?${params.toString()}`;
 }
 
@@ -74,7 +78,7 @@ export function HeroSearch() {
 
   function confirmHasVisa() {
     if (!passport || !destination) return;
-    window.location.href = searchHref(passport, destination);
+    window.location.href = searchHref(passport, destination, { visaOk: true });
   }
 
   return (
@@ -303,7 +307,7 @@ export function HeroSearch() {
                 <div className="grid gap-2 sm:grid-cols-2">
                   {visaFree.map((dest) =>
                     dest && passport ? (
-                      <Link
+                      <a
                         key={dest.slug}
                         href={searchHref(passport, dest.slug)}
                         className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 transition hover:bg-white/15"
@@ -313,7 +317,7 @@ export function HeroSearch() {
                         </p>
                         <p className="font-heading text-lg font-semibold">{dest.city}</p>
                         <p className="text-xs text-white/65">{dest.tagline}</p>
-                      </Link>
+                      </a>
                     ) : null
                   )}
                 </div>

@@ -1,51 +1,48 @@
 # Marco Polo Experience
 
-Marketplace ecommerce (LatAm-first) para reservar cursos cortos de idiomas en el exterior. Empresa hermana de [Marco Polo Education](https://www.marcopoloeducation.com).
+Partner-demo ecommerce (LatAm-first, Spanish UI) for short language stays abroad. Sister of [Marco Polo Education](https://www.marcopoloeducation.com).
 
-UI en español · catálogo estático · matriz de visa orientativa · **Stripe Checkout** real (modo test).
+**This build runs on rich static mock data** (dummy prices/content). Edvisor is stubbed for later.
+
+## Locked purchase flow
+
+1. País (nacionalidad) + idioma  
+2. Países destino sugeridos  
+3. Fechas (inicio + semanas + calculadora de fin)  
+4. Programa (general / prep exámenes / +30)  
+5. Extras + precio sticky (alojamiento, seguro, aeropuerto)  
+6. Tarjeta (validar método — aún no cobra)  
+7. Contacto → **cobra al enviar**  
+8. Confirmación + 3 emails (cliente, escuela, MPE interno)
 
 ## Stack
 
-- Next.js App Router (TypeScript)
-- Tailwind CSS + shadcn/ui + Lucide React
-- Stripe Checkout Sessions
-- Tipografía Syne + Manrope
-- Paleta alineada a MPE: navy `#26263b`, mint `#03ce81`, indigo `#4d65ff`
+- Next.js App Router, Tailwind, shadcn/ui  
+- Stripe path (optional env) · Resend path (optional env)  
+- Mock catalog: `lib/data/mock-catalog.ts`  
+- Edvisor stub: `lib/edvisor/client.ts`
 
-## Flujo (Fase 1)
-
-1. **Nacionalidad** (pasaporte LatAm)
-2. **Destino** (ciudad / idioma del catálogo)
-3. **Visa** — solo si el destino suele requerir visa consular; si no tienes visa → alternativas sin visa
-4. Resultados de escuelas → course builder (duración, alojamiento, seguro)
-5. Datos de invitado (nombre, email, teléfono) → **Stripe Checkout** → success / cancel
-
-La matriz de visa es orientación general, no asesoría legal.
-
-## Variables de entorno
-
-Copia `.env.example` a `.env.local`:
+## Env
 
 ```bash
+# Optional — real Stripe (test mode)
 STRIPE_SECRET_KEY=sk_test_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-# Opcional — verificación de webhooks
 STRIPE_WEBHOOK_SECRET=whsec_...
-# Opcional — URL pública (túnel / deploy) para success/cancel de Checkout
+
+# Optional — real email
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=Marco Polo Experience <onboarding@resend.dev>
+MPE_INTERNAL_EMAIL=ops@yourdomain.com
+
 NEXT_PUBLIC_APP_URL=http://127.0.0.1:4317
 ```
 
-Sin las keys de Stripe, el CTA de pago muestra un mensaje claro de setup; el código de Checkout Session ya está cableado en `POST /api/checkout`.
+Without Stripe/Resend keys the full click-through still works: mock charge + email payloads in UI/logs.
 
-Webhook opcional: `POST /api/webhooks/stripe` (evento `checkout.session.completed`).
+Demo card: `4242 4242 4242 4242`, any future MM/AA, any 3-digit CVC.
 
-## Precios
-
-- Matrícula = precio semanal × semanas (4 / 8 / 12)
-- Homestay +USD 180/semana · Residencia +USD 220/semana
-- Guard.me +USD 45 fijos
-
-## Correr en local
+## Run
 
 ```bash
 npm install
@@ -53,12 +50,4 @@ npm run build
 npm start
 ```
 
-Abre [http://127.0.0.1:4317](http://127.0.0.1:4317).
-
-Para desarrollo con hot reload:
-
-```bash
-npm run dev
-```
-
-> En este entorno, `next start` (producción) es más fiable para el checkout que Turbopack HMR.
+Open [http://127.0.0.1:4317](http://127.0.0.1:4317).

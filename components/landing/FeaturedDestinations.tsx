@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { destinations } from "@/lib/data/schools";
 
@@ -32,7 +31,7 @@ export function FeaturedDestinations() {
 
         <div className="grid gap-5 md:grid-cols-3">
           {destinations.map((dest, index) => (
-            <Link
+            <a
               key={dest.slug}
               href={`/search?passport=COL&destination=${dest.slug}&language=${dest.languages[0]}`}
               className="group relative block min-h-[380px] overflow-hidden rounded-[1.5rem]"
@@ -58,7 +57,7 @@ export function FeaturedDestinations() {
                 </div>
                 <p className="text-sm text-white/75">{dest.tagline}</p>
               </div>
-            </Link>
+            </a>
           ))}
         </div>
       </div>
