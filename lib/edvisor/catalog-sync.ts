@@ -60,12 +60,13 @@ function mapProgram(
   };
 }
 
-/** Sync load of Edvisor vendor package (always preferred when present). */
+/** Sync load of Edvisor catalog (vendor JSON or injected live snapshot). */
 export function loadExperienceCatalogSync(
-  curation?: { schools: Record<string, boolean>; programs: Record<string, boolean> }
+  curation?: { schools: Record<string, boolean>; programs: Record<string, boolean> },
+  catalogOverride?: EdvisorCatalog
 ): ExperienceCatalog {
   try {
-    const catalog = loadEdvisorCatalog();
+    const catalog = catalogOverride ?? loadEdvisorCatalog();
     const cur = curation ?? { schools: {}, programs: {} };
 
     const schools = catalog.schools.filter((s) => s.complete);

@@ -41,8 +41,15 @@ type CatalogPayload = {
   source: string;
   sourceLabel: string;
   metaNote?: string;
+  edvisorApiConfigured?: boolean;
   schools: AdminSchool[];
   programs: AdminProgram[];
+  stats?: {
+    schoolsTotal: number;
+    schoolsComplete: number;
+    programsTotal: number;
+    programsComplete: number;
+  };
   curation: {
     schools: Record<string, boolean>;
     programs: Record<string, boolean>;
@@ -59,6 +66,8 @@ export function AdminPanel() {
   const [catalog, setCatalog] = useState<CatalogPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!firebaseReady) return;
@@ -102,6 +111,35 @@ export function AdminPanel() {
       setLoadError(e instanceof Error ? e.message : "No se pudo cargar el catálogo");
     }
   }, [user]);
+
+  const syncEdvisor = useCallback(async () => {
+    if (!user) return;
+    setSyncing(true);
+    setSyncMessage(null);
+    setLoadError(null);
+    try {
+      const token = await user.getIdToken(true);
+      const res = await fetch("/api/admin/sync-edvisor", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoadError(data.sync?.error || data.error || `Sync error ${res.status}`);
+        setSyncMessage(null);
+        return;
+      }
+      const s = data.sync;
+      setSyncMessage(
+        `Sync OK: ${s.languageSchools} escuelas de idiomas · ${s.programs} programas · ${s.schoolCompanies} school companies`
+      );
+      await loadCatalog();
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Sync falló");
+    } finally {
+      setSyncing(false);
+    }
+  }, [user, loadCatalog]);
 
   useEffect(() => {
     void loadCatalog();
@@ -226,17 +264,43 @@ export function AdminPanel() {
             Curación Edvisor
           </h1>
           <p className="mt-2 text-sm text-ink/60">
-            Sesión: {user.email}. Solo productos <em>complete</em> en Edvisor.
+            Sesión: {user.email}. Solo productos <em>complete</em> se pueden activar en el cotizador.
           </p>
         </div>
-        <Button variant="outline" onClick={handleSignOut}>
-          Cerrar sesión
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className="bg-indigo text-white hover:bg-indigo/90"
+            disabled={syncing}
+            onClick={() => void syncEdvisor()}
+          >
+            {syncing ? "Sincronizando…" : "Sincronizar escuelas Edvisor"}
+          </Button>
+          <Button variant="outline" onClick={handleSignOut}>
+            Cerrar sesión
+          </Button>
+        </div>
       </header>
 
       {catalog && (
         <div className="rounded-xl border border-mint/40 bg-mint/10 px-4 py-3 text-sm text-ink">
           Fuente catálogo: <strong>{catalog.sourceLabel}</strong> ({catalog.source})
+          {catalog.stats ? (
+            <span className="mt-1 block text-ink/70">
+              Escuelas {catalog.stats.schoolsTotal} ({catalog.stats.schoolsComplete} complete) ·
+              Programas {catalog.stats.programsTotal} ({catalog.stats.programsComplete} complete)
+            </span>
+          ) : null}
+          {catalog.edvisorApiConfigured === false ? (
+            <span className="mt-1 block text-amber-800">
+              Falta <code className="rounded bg-white/80 px-1">EDVISOR_API_KEY</code> en el entorno
+              para traer TODAS las escuelas conectadas vía GraphQL (
+              <code className="rounded bg-white/80 px-1">schoolCompanyConnectedList</code>).
+            </span>
+          ) : (
+            <span className="mt-1 block text-ink/60">
+              API Edvisor configurada — usa “Sincronizar” para refrescar el inventario live.
+            </span>
+          )}
           {catalog.metaNote ? <span className="mt-1 block text-ink/60">{catalog.metaNote}</span> : null}
           {catalog.curation.updatedAt ? (
             <span className="mt-1 block text-xs text-ink/50">
@@ -245,6 +309,10 @@ export function AdminPanel() {
             </span>
           ) : null}
         </div>
+      )}
+
+      {syncMessage && (
+        <p className="rounded-lg bg-mint/20 px-3 py-2 text-sm text-ink">{syncMessage}</p>
       )}
 
       {loadError && (
@@ -268,14 +336,19 @@ export function AdminPanel() {
                   className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p className="font-medium text-ink">{s.name}</p>
+                    <p className="font-medium text-ink">
+                      {s.name}{" "}
+                      {!s.complete ? (
+                        <span className="text-xs font-normal text-amber-700">(incomplete)</span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-ink/50">
                       {s.id} · {s.email} · dest {s.destinationId}
                     </p>
                   </div>
                   <Button
                     variant={s.enabled ? "outline" : "default"}
-                    disabled={busyId === `school:${s.id}`}
+                    disabled={busyId === `school:${s.id}` || (!s.complete && !s.enabled)}
                     className={s.enabled ? "" : "bg-ink text-white"}
                     onClick={() => void toggle("school", s.id, !s.enabled)}
                   >
@@ -299,7 +372,12 @@ export function AdminPanel() {
                     className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
-                      <p className="font-medium text-ink">{p.title}</p>
+                      <p className="font-medium text-ink">
+                        {p.title}{" "}
+                        {!p.complete ? (
+                          <span className="text-xs font-normal text-amber-700">(incomplete)</span>
+                        ) : null}
+                      </p>
                       <p className="text-xs text-ink/50">
                         {p.schoolName || school?.name} · ${p.weeklyPriceUsd}/sem · {p.kind} ·{" "}
                         {p.id}
@@ -307,7 +385,11 @@ export function AdminPanel() {
                     </div>
                     <Button
                       variant={p.enabled ? "outline" : "default"}
-                      disabled={busyId === `program:${p.id}` || school?.enabled === false}
+                      disabled={
+                        busyId === `program:${p.id}` ||
+                        school?.enabled === false ||
+                        (!p.complete && !p.enabled)
+                      }
                       className={p.enabled ? "" : "bg-ink text-white"}
                       onClick={() => void toggle("program", p.id, !p.enabled)}
                     >

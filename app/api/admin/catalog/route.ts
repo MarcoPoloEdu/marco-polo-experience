@@ -1,58 +1,61 @@
 import { NextResponse } from "next/server";
-import { loadEdvisorCatalog } from "@marco-polo/experience-edvisor";
 import { getCurationState, patchCurationToggle } from "@/lib/edvisor/curation";
 import { verifyAdminRequest } from "@/lib/firebase/admin";
+import { resolveEdvisorCatalog } from "@/lib/edvisor/resolve-catalog";
+import { isEdvisorApiConfigured } from "@/lib/edvisor/api";
 
 export const runtime = "nodejs";
 
-function buildPayload(
+async function buildPayload(
   curation: Awaited<ReturnType<typeof getCurationState>>
 ) {
-  const catalog = loadEdvisorCatalog();
-  const schools = catalog.schools
-    .filter((s) => s.complete)
-    .map((s) => ({
-      ...s,
-      enabled: curation.schools[s.id] ?? true,
-    }));
+  const { catalog, source } = await resolveEdvisorCatalog();
+
+  // Admin shows ALL complete schools + incomplete (so Felipe can see inventory gaps)
+  const schools = catalog.schools.map((s) => ({
+    ...s,
+    enabled: curation.schools[s.id] ?? true,
+  }));
 
   const schoolName = new Map(schools.map((s) => [s.id, s.name]));
 
-  const programs = catalog.programs
-    .filter((p) => p.complete)
-    .map((p) => ({
-      id: p.id,
-      title: p.title,
-      schoolId: p.schoolId,
-      schoolName: schoolName.get(p.schoolId) ?? "",
-      weeklyPriceUsd: p.weeklyPriceUsd,
-      kind: p.kind,
-      destinationId: p.destinationId,
-      complete: p.complete,
-      enabled: curation.programs[p.id] ?? true,
-    }));
+  const programs = catalog.programs.map((p) => ({
+    id: p.id,
+    title: p.title,
+    schoolId: p.schoolId,
+    schoolName: schoolName.get(p.schoolId) ?? "",
+    weeklyPriceUsd: p.weeklyPriceUsd,
+    kind: p.kind,
+    destinationId: p.destinationId,
+    complete: p.complete,
+    enabled: curation.programs[p.id] ?? true,
+  }));
 
   return {
-    source: "edvisor",
+    source,
     sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
     metaNote: catalog.meta.note,
+    edvisorApiConfigured: isEdvisorApiConfigured(),
     schools,
     programs,
     curation,
+    stats: {
+      schoolsTotal: schools.length,
+      schoolsComplete: schools.filter((s) => s.complete).length,
+      programsTotal: programs.length,
+      programsComplete: programs.filter((p) => p.complete).length,
+    },
   };
 }
 
 export async function GET(request: Request) {
   const auth = await verifyAdminRequest(request.headers.get("authorization"));
   if (!auth.ok) {
-    // Soft path: if Firebase Admin not configured, still block mutations but allow
-    // reading catalog only when a demo bypass is explicitly enabled is NOT allowed —
-    // require token. Return the error.
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const curation = await getCurationState();
-  return NextResponse.json(buildPayload(curation));
+  return NextResponse.json(await buildPayload(curation));
 }
 
 export async function PATCH(request: Request) {
@@ -79,20 +82,28 @@ export async function PATCH(request: Request) {
     );
   }
 
-  const catalog = loadEdvisorCatalog();
+  const { catalog } = await resolveEdvisorCatalog();
   if (body.kind === "school") {
     const school = catalog.schools.find((s) => s.id === body.id);
-    if (!school?.complete) {
+    if (!school) {
+      return NextResponse.json({ error: "School not found in Edvisor catalog" }, { status: 400 });
+    }
+    // Only allow enabling complete schools for public cotizador semantics,
+    // but allow disabling anything.
+    if (body.enabled && !school.complete) {
       return NextResponse.json(
-        { error: "School not found or not complete in Edvisor" },
+        { error: "Solo se pueden activar escuelas complete en Edvisor" },
         { status: 400 }
       );
     }
   } else {
     const program = catalog.programs.find((p) => p.id === body.id);
-    if (!program?.complete) {
+    if (!program) {
+      return NextResponse.json({ error: "Program not found in Edvisor catalog" }, { status: 400 });
+    }
+    if (body.enabled && !program.complete) {
       return NextResponse.json(
-        { error: "Program not found or not complete in Edvisor" },
+        { error: "Solo se pueden activar programas complete en Edvisor" },
         { status: 400 }
       );
     }
@@ -105,5 +116,5 @@ export async function PATCH(request: Request) {
     actorEmail: auth.admin.email,
   });
 
-  return NextResponse.json(buildPayload(curation));
+  return NextResponse.json(await buildPayload(curation));
 }

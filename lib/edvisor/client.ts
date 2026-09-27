@@ -5,14 +5,28 @@
 
 import "server-only";
 
-import { loadExperienceCatalogSync, type ExperienceCatalog } from "@/lib/edvisor/catalog-sync";
+import {
+  loadExperienceCatalogSync,
+  type ExperienceCatalog,
+  type CatalogSource,
+} from "@/lib/edvisor/catalog-sync";
 import { getCurationState } from "@/lib/edvisor/curation";
-import { loadEdvisorCatalog, type EdvisorProgram, type EdvisorSchool } from "@marco-polo/experience-edvisor";
-import type { CatalogSource } from "@/lib/edvisor/catalog-sync";
+import { resolveEdvisorCatalog } from "@/lib/edvisor/resolve-catalog";
+import type { EdvisorProgram, EdvisorSchool } from "@marco-polo/experience-edvisor";
 
 export async function loadExperienceCatalog(): Promise<ExperienceCatalog> {
   const curation = await getCurationState();
-  return loadExperienceCatalogSync(curation);
+  const { catalog, source } = await resolveEdvisorCatalog();
+  const mapped = loadExperienceCatalogSync(curation, catalog);
+  if (source === "edvisor-live") {
+    return {
+      ...mapped,
+      source: mapped.source === "fallback" ? "fallback" : "edvisor",
+      sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
+      metaNote: catalog.meta.note,
+    };
+  }
+  return mapped;
 }
 
 export async function fetchEdvisorCatalog(): Promise<{
@@ -21,10 +35,10 @@ export async function fetchEdvisorCatalog(): Promise<{
   source: CatalogSource;
 }> {
   const exp = await loadExperienceCatalog();
-  const raw = loadEdvisorCatalog();
+  const { catalog } = await resolveEdvisorCatalog();
   return {
     schools: exp.schools,
-    programs: raw.programs.filter((p) => p.complete),
+    programs: catalog.programs.filter((p) => p.complete),
     source: exp.source,
   };
 }
