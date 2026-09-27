@@ -57,7 +57,7 @@ export async function getCurationState(): Promise<CurationState> {
   if (firestoreConfigured()) {
     try {
       const { getAdminDb } = await import("@/lib/firebase/admin");
-      const db = getAdminDb();
+      const db = await getAdminDb();
       if (db) {
         const snap = await db.collection("curation").doc("experience").get();
         if (snap.exists) {
@@ -96,7 +96,7 @@ export async function setCurationState(
   if (firestoreConfigured()) {
     try {
       const { getAdminDb } = await import("@/lib/firebase/admin");
-      const db = getAdminDb();
+      const db = await getAdminDb();
       if (db) {
         await db.collection("curation").doc("experience").set(state, { merge: true });
         return state;

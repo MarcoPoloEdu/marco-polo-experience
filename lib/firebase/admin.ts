@@ -1,17 +1,24 @@
 /**
  * Firebase Admin — verify ID tokens for /api/admin/*.
- * Prefer Admin SDK (service account). On failure, fall back to Identity Toolkit
- * accounts:lookup (API key) so Google-signed Firebase ID tokens still work.
+ * Prefer Admin SDK (service account) when available; otherwise Identity Toolkit
+ * accounts:lookup (API key). firebase-admin is lazy-imported so Vercel serverless
+ * does not crash the module graph when the package fails to bundle/load.
  */
 
 import "server-only";
 
-import { getApps, initializeApp, cert, type App } from "firebase-admin/app";
-import { getAuth, type Auth } from "firebase-admin/auth";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { isAdminEmail } from "@/lib/firebase/allowlist";
 
-let adminApp: App | undefined;
+export type VerifiedAdmin = {
+  uid: string;
+  email: string;
+};
+
+type AdminApp = import("firebase-admin/app").App;
+type Auth = import("firebase-admin/auth").Auth;
+type Firestore = import("firebase-admin/firestore").Firestore;
+
+let adminApp: AdminApp | undefined;
 let adminInitAttempted = false;
 
 function hasServiceAccount(): boolean {
@@ -23,7 +30,6 @@ function hasServiceAccount(): boolean {
 
 function normalizePrivateKey(raw: string): string {
   let key = raw.trim();
-  // Strip wrapping quotes from .env parsers
   if (
     (key.startsWith('"') && key.endsWith('"')) ||
     (key.startsWith("'") && key.endsWith("'"))
@@ -33,23 +39,25 @@ function normalizePrivateKey(raw: string): string {
   return key.replace(/\\n/g, "\n");
 }
 
-function initAdmin(): App | null {
-  if (getApps().length) {
-    adminApp = getApps()[0]!;
-    return adminApp;
-  }
+async function initAdmin(): Promise<AdminApp | null> {
+  if (adminApp) return adminApp;
   if (adminInitAttempted) return adminApp ?? null;
   adminInitAttempted = true;
 
+  if (!hasServiceAccount()) return null;
+
   const projectId =
     process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId || !hasServiceAccount()) return null;
-
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
-  if (!clientEmail || !privateKeyRaw) return null;
+  if (!projectId || !clientEmail || !privateKeyRaw) return null;
 
   try {
+    const { getApps, initializeApp, cert } = await import("firebase-admin/app");
+    if (getApps().length) {
+      adminApp = getApps()[0]!;
+      return adminApp;
+    }
     const privateKey = normalizePrivateKey(privateKeyRaw);
     adminApp = initializeApp({
       credential: cert({ projectId, clientEmail, privateKey }),
@@ -62,26 +70,33 @@ function initAdmin(): App | null {
   }
 }
 
-export function getAdminApp(): App | null {
-  return adminApp ?? initAdmin();
+export async function getAdminApp(): Promise<AdminApp | null> {
+  return initAdmin();
 }
 
-export function getAdminAuth(): Auth | null {
-  const app = getAdminApp();
+export async function getAdminAuth(): Promise<Auth | null> {
+  const app = await getAdminApp();
   if (!app) return null;
-  return getAuth(app);
+  try {
+    const { getAuth } = await import("firebase-admin/auth");
+    return getAuth(app);
+  } catch (err) {
+    console.warn("[firebase-admin] getAuth failed", err);
+    return null;
+  }
 }
 
-export function getAdminDb(): Firestore | null {
-  const app = getAdminApp();
+export async function getAdminDb(): Promise<Firestore | null> {
+  const app = await getAdminApp();
   if (!app) return null;
-  return getFirestore(app);
+  try {
+    const { getFirestore } = await import("firebase-admin/firestore");
+    return getFirestore(app);
+  } catch (err) {
+    console.warn("[firebase-admin] getFirestore failed", err);
+    return null;
+  }
 }
-
-export type VerifiedAdmin = {
-  uid: string;
-  email: string;
-};
 
 /**
  * Verify Firebase ID token via Identity Toolkit (works with client SDK tokens).
@@ -160,7 +175,12 @@ export async function verifyAdminRequest(
     return { ok: false, status: 401, error: "Empty token" };
   }
 
-  const auth = getAdminAuth();
+  // Prefer Identity Toolkit first on serverless — no native SA bundle required.
+  // Fall back to Admin SDK when available.
+  const toolkit = await verifyViaIdentityToolkit(token);
+  if (toolkit.ok) return toolkit;
+
+  const auth = await getAdminAuth();
   if (auth) {
     try {
       const decoded = await auth.verifyIdToken(token);
@@ -171,12 +191,11 @@ export async function verifyAdminRequest(
       return { ok: true, admin: { uid: decoded.uid, email: email! } };
     } catch (err) {
       console.warn(
-        "[firebase-admin] verifyIdToken failed, falling back to Identity Toolkit",
+        "[firebase-admin] verifyIdToken failed",
         err instanceof Error ? err.message : err
       );
-      // Fall through — SA may lack token-verify capability or key may be misparsed
     }
   }
 
-  return verifyViaIdentityToolkit(token);
+  return toolkit;
 }

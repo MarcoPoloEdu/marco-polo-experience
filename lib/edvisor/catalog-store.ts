@@ -28,7 +28,7 @@ export async function readActiveCatalog(): Promise<EdvisorCatalog | null> {
   if (firestoreConfigured()) {
     try {
       const { getAdminDb } = await import("@/lib/firebase/admin");
-      const db = getAdminDb();
+      const db = await getAdminDb();
       if (db) {
         const active = await db.collection("catalogMeta").doc("active").get();
         if (active.exists) {
@@ -71,7 +71,7 @@ export async function activateCatalogVersion(
 
   if (firestoreConfigured()) {
     const { getAdminDb } = await import("@/lib/firebase/admin");
-    const db = getAdminDb();
+    const db = await getAdminDb();
     if (db) {
       const batch = db.batch();
       batch.set(db.collection("catalogVersions").doc(versionId), record);
