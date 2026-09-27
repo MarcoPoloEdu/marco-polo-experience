@@ -101,7 +101,18 @@ export function AdminPanel() {
       const res = await fetch("/api/admin/catalog", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { error?: string } & Partial<CatalogPayload> = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        setLoadError(
+          raw
+            ? `Respuesta inválida del servidor (${res.status})`
+            : `El servidor no respondió JSON (${res.status}). Revisa Firebase Admin en Vercel.`
+        );
+        return;
+      }
       if (!res.ok) {
         setLoadError(data.error || `Error ${res.status}`);
         return;
@@ -123,7 +134,27 @@ export function AdminPanel() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: {
+        error?: string;
+        sync?: {
+          error?: string;
+          languageSchools?: number;
+          programs?: number;
+          schoolCompanies?: number;
+        };
+      } = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        setLoadError(
+          raw
+            ? `Sync: respuesta inválida (${res.status})`
+            : `Sync: el servidor no respondió JSON (${res.status})`
+        );
+        setSyncMessage(null);
+        return;
+      }
       if (!res.ok) {
         setLoadError(data.sync?.error || data.error || `Sync error ${res.status}`);
         setSyncMessage(null);
@@ -131,7 +162,7 @@ export function AdminPanel() {
       }
       const s = data.sync;
       setSyncMessage(
-        `Sync OK: ${s.languageSchools} escuelas de idiomas · ${s.programs} programas · ${s.schoolCompanies} school companies`
+        `Sync OK: ${s?.languageSchools ?? 0} escuelas de idiomas · ${s?.programs ?? 0} programas · ${s?.schoolCompanies ?? 0} school companies`
       );
       await loadCatalog();
     } catch (e) {
@@ -181,7 +212,18 @@ export function AdminPanel() {
         },
         body: JSON.stringify({ kind, id, enabled }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: { error?: string } & Partial<CatalogPayload> = {};
+      try {
+        data = raw ? (JSON.parse(raw) as typeof data) : {};
+      } catch {
+        setLoadError(
+          raw
+            ? `Respuesta inválida al guardar (${res.status})`
+            : `El servidor no respondió JSON al guardar (${res.status})`
+        );
+        return;
+      }
       if (!res.ok) {
         setLoadError(data.error || `Error ${res.status}`);
         return;

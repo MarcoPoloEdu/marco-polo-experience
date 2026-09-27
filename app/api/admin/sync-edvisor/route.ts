@@ -10,25 +10,36 @@ export const maxDuration = 120;
 
 /** Pull all connected language schools from Edvisor GraphQL into live catalog. */
 export async function POST(request: Request) {
-  const auth = await verifyAdminRequest(request.headers.get("authorization"));
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  try {
+    const auth = await verifyAdminRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const result = await syncEdvisorLanguageSchools();
+    const curation = await getCurationState();
+    const { catalog, source } = await resolveEdvisorCatalog();
+
+    return NextResponse.json(
+      {
+        sync: result,
+        edvisorApiConfigured: isEdvisorApiConfigured(),
+        source,
+        sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
+        schools: catalog.schools.length,
+        programs: catalog.programs.length,
+        curationUpdatedAt: curation.updatedAt,
+      },
+      { status: result.ok ? 200 : result.configured ? 502 : 503 }
+    );
+  } catch (err) {
+    console.error("[api/admin/sync-edvisor] POST failed", err);
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error ? err.message : "Sync Edvisor falló en el servidor",
+      },
+      { status: 500 }
+    );
   }
-
-  const result = await syncEdvisorLanguageSchools();
-  const curation = await getCurationState();
-  const { catalog, source } = await resolveEdvisorCatalog();
-
-  return NextResponse.json(
-    {
-      sync: result,
-      edvisorApiConfigured: isEdvisorApiConfigured(),
-      source,
-      sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
-      schools: catalog.schools.length,
-      programs: catalog.programs.length,
-      curationUpdatedAt: curation.updatedAt,
-    },
-    { status: result.ok ? 200 : result.configured ? 502 : 503 }
-  );
 }

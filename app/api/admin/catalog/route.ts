@@ -49,72 +49,94 @@ async function buildPayload(
 }
 
 export async function GET(request: Request) {
-  const auth = await verifyAdminRequest(request.headers.get("authorization"));
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
+  try {
+    const auth = await verifyAdminRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
-  const curation = await getCurationState();
-  return NextResponse.json(await buildPayload(curation));
+    const curation = await getCurationState();
+    return NextResponse.json(await buildPayload(curation));
+  } catch (err) {
+    console.error("[api/admin/catalog] GET failed", err);
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error ? err.message : "No se pudo cargar el catálogo admin",
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(request: Request) {
-  const auth = await verifyAdminRequest(request.headers.get("authorization"));
-  if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
-
-  let body: { kind?: string; id?: string; enabled?: boolean };
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
+    const auth = await verifyAdminRequest(request.headers.get("authorization"));
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
-  if (
-    (body.kind !== "school" && body.kind !== "program") ||
-    typeof body.id !== "string" ||
-    typeof body.enabled !== "boolean"
-  ) {
+    let body: { kind?: string; id?: string; enabled?: boolean };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    if (
+      (body.kind !== "school" && body.kind !== "program") ||
+      typeof body.id !== "string" ||
+      typeof body.enabled !== "boolean"
+    ) {
+      return NextResponse.json(
+        { error: "Expected { kind: 'school'|'program', id: string, enabled: boolean }" },
+        { status: 400 }
+      );
+    }
+
+    const { catalog } = await resolveEdvisorCatalog();
+    if (body.kind === "school") {
+      const school = catalog.schools.find((s) => s.id === body.id);
+      if (!school) {
+        return NextResponse.json({ error: "School not found in Edvisor catalog" }, { status: 400 });
+      }
+      // Only allow enabling complete schools for public cotizador semantics,
+      // but allow disabling anything.
+      if (body.enabled && !school.complete) {
+        return NextResponse.json(
+          { error: "Solo se pueden activar escuelas complete en Edvisor" },
+          { status: 400 }
+        );
+      }
+    } else {
+      const program = catalog.programs.find((p) => p.id === body.id);
+      if (!program) {
+        return NextResponse.json({ error: "Program not found in Edvisor catalog" }, { status: 400 });
+      }
+      if (body.enabled && !program.complete) {
+        return NextResponse.json(
+          { error: "Solo se pueden activar programas complete en Edvisor" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const curation = await patchCurationToggle({
+      kind: body.kind,
+      id: body.id,
+      enabled: body.enabled,
+      actorEmail: auth.admin.email,
+    });
+
+    return NextResponse.json(await buildPayload(curation));
+  } catch (err) {
+    console.error("[api/admin/catalog] PATCH failed", err);
     return NextResponse.json(
-      { error: "Expected { kind: 'school'|'program', id: string, enabled: boolean }" },
-      { status: 400 }
+      {
+        error:
+          err instanceof Error ? err.message : "No se pudo guardar la curación",
+      },
+      { status: 500 }
     );
   }
-
-  const { catalog } = await resolveEdvisorCatalog();
-  if (body.kind === "school") {
-    const school = catalog.schools.find((s) => s.id === body.id);
-    if (!school) {
-      return NextResponse.json({ error: "School not found in Edvisor catalog" }, { status: 400 });
-    }
-    // Only allow enabling complete schools for public cotizador semantics,
-    // but allow disabling anything.
-    if (body.enabled && !school.complete) {
-      return NextResponse.json(
-        { error: "Solo se pueden activar escuelas complete en Edvisor" },
-        { status: 400 }
-      );
-    }
-  } else {
-    const program = catalog.programs.find((p) => p.id === body.id);
-    if (!program) {
-      return NextResponse.json({ error: "Program not found in Edvisor catalog" }, { status: 400 });
-    }
-    if (body.enabled && !program.complete) {
-      return NextResponse.json(
-        { error: "Solo se pueden activar programas complete en Edvisor" },
-        { status: 400 }
-      );
-    }
-  }
-
-  const curation = await patchCurationToggle({
-    kind: body.kind,
-    id: body.id,
-    enabled: body.enabled,
-    actorEmail: auth.admin.email,
-  });
-
-  return NextResponse.json(await buildPayload(curation));
 }
