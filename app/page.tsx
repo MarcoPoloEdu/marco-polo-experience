@@ -39,7 +39,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         initialLanguage={params.language as LanguageCode | undefined}
         initialDestinationId={params.destination}
         initialProgramId={params.program}
-        startAtStep={params.book === "1" && params.program ? 5 : undefined}
+        startAtStep={params.book === "1" && params.program ? 6 : undefined}
       />
     </main>
   );

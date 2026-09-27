@@ -77,14 +77,15 @@ const DEST_LINE =
   "🇨🇦 Toronto · 🇬🇧 Londres · 🇮🇪 Dublín · 🇺🇸 Nueva York · y más";
 
 const STEPS = [
-  { id: 1, label: "País" },
-  { id: 2, label: "Destino" },
-  { id: 3, label: "Fechas" },
-  { id: 4, label: "Programa" },
-  { id: 5, label: "Extras" },
-  { id: 6, label: "Resumen" },
-  { id: 7, label: "Contacto" },
-  { id: 8, label: "Listo" },
+  { id: 1, label: "Pasaporte" },
+  { id: 2, label: "País" },
+  { id: 3, label: "Ciudad" },
+  { id: 4, label: "Fechas" },
+  { id: 5, label: "Programa" },
+  { id: 6, label: "Extras" },
+  { id: 7, label: "Resumen" },
+  { id: 8, label: "Contacto" },
+  { id: 9, label: "Listo" },
 ] as const;
 
 const HERO_FALLBACK =
@@ -110,7 +111,7 @@ export function BookingWizard({
   startAtStep?: number;
 } = {}) {
   const router = useRouter();
-  const [step, setStep] = useState(startAtStep && startAtStep >= 1 && startAtStep <= 8 ? startAtStep : 1);
+  const [step, setStep] = useState(startAtStep && startAtStep >= 1 && startAtStep <= 9 ? startAtStep : 1);
   const [nationality, setNationality] = useState<NationalityCode | "">(
     initialNationality ?? ""
   );
@@ -118,6 +119,10 @@ export function BookingWizard({
     initialLanguage ?? ""
   );
   const [destinationId, setDestinationId] = useState(initialDestinationId ?? "");
+  const [destinationCountry, setDestinationCountry] = useState(() => {
+    if (!initialDestinationId) return "";
+    return getDestination(initialDestinationId)?.country ?? "";
+  });
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [weeks, setWeeks] = useState<WeekOption>(4);
   const [programId, setProgramId] = useState(initialProgramId ?? "");
@@ -146,6 +151,48 @@ export function BookingWizard({
     () => (language ? suggestDestinations(language) : []),
     [language]
   );
+
+  /** Destino: país → ciudad (sin precios en esta etapa). */
+  const destinationCountries = useMemo(() => {
+    const byCountry = new Map<
+      string,
+      {
+        country: string;
+        cities: typeof destinations;
+        heroUrl: string;
+        imageUrl: string;
+        visaFriction: "low" | "medium" | "high";
+      }
+    >();
+    const frictionRank = { low: 0, medium: 1, high: 2 } as const;
+    for (const d of destinations) {
+      const existing = byCountry.get(d.country);
+      if (!existing) {
+        byCountry.set(d.country, {
+          country: d.country,
+          cities: [d],
+          heroUrl: d.heroUrl || d.imageUrl,
+          imageUrl: d.imageUrl,
+          visaFriction: d.visaFriction,
+        });
+      } else {
+        existing.cities.push(d);
+        if (frictionRank[d.visaFriction] < frictionRank[existing.visaFriction]) {
+          existing.visaFriction = d.visaFriction;
+        }
+      }
+    }
+    return [...byCountry.values()].sort((a, b) =>
+      a.country.localeCompare(b.country, "es")
+    );
+  }, [destinations]);
+
+  const citiesInCountry = useMemo(() => {
+    if (!destinationCountry) return [];
+    return destinations
+      .filter((d) => d.country === destinationCountry)
+      .sort((a, b) => a.city.localeCompare(b.city, "es"));
+  }, [destinations, destinationCountry]);
   const programs = useMemo(
     () =>
       destinationId && language ? enabledPrograms(destinationId, language) : [],
@@ -175,7 +222,7 @@ export function BookingWizard({
     });
   }, [programId, weeks, accommodationId, insuranceId, airportId]);
 
-  const showSidebar = step >= 5 && step <= 7;
+  const showSidebar = step >= 6 && step <= 8;
   const atmosphereUrl = destination?.heroUrl ?? HERO_FALLBACK;
 
   function submitSearch() {
@@ -188,7 +235,7 @@ export function BookingWizard({
   function goNext() {
     setError(null);
     setPriceOpen(false);
-    setStep((s) => Math.min(8, s + 1));
+    setStep((s) => Math.min(9, s + 1));
   }
 
   function goBack() {
@@ -398,7 +445,9 @@ export function BookingWizard({
                         type="button"
                         onClick={() => {
                           setLanguage(l.code);
+                          setDestinationCountry("");
                           setDestinationId("");
+                          setProgramId("");
                           setProgramId("");
                         }}
                         className={cn(
@@ -449,65 +498,135 @@ export function BookingWizard({
             >
               {step === 2 && language && (
                 <StepShell
-                  kicker="Destinos sugeridos"
-                  title="¿Dónde quieres vivir el idioma?"
-                  subtitle="Ordenados por fricción de visa y precio de entrada (demo)."
+                  kicker="País de destino"
+                  title="¿En qué país quieres vivir el idioma?"
+                  subtitle="Primero elige el país. La ciudad viene después — sin precios en esta etapa."
                 >
-                  <div className="space-y-3">
-                    {destinations.map((d, i) => (
-                      <button
-                        key={d.id}
-                        type="button"
-                        onClick={() => {
-                          setDestinationId(d.id);
-                          setProgramId("");
-                        }}
-                        className={cn(
-                          "group relative block w-full overflow-hidden rounded-[1.25rem] text-left transition active:scale-[0.995]",
-                          destinationId === d.id
-                            ? "ring-2 ring-mint ring-offset-2 ring-offset-ink"
-                            : "ring-1 ring-white/15 hover:ring-white/35"
-                        )}
-                        style={{ animationDelay: `${i * 40}ms` }}
-                      >
-                        <div className="relative aspect-[16/11] sm:aspect-[21/9]">
-                          <Image
-                            src={d.heroUrl || d.imageUrl}
-                            alt={`${d.city}, ${d.country}`}
-                            fill
-                            className="object-cover transition duration-700 group-hover:scale-[1.04]"
-                            sizes="(max-width: 768px) 100vw, 720px"
-                            priority={i === 0}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/35 to-transparent" />
-                          <div className="absolute inset-x-0 bottom-0 space-y-2 p-4 sm:p-6">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[11px] font-semibold tracking-[0.18em] text-mint uppercase">
-                                {d.country}
-                              </span>
-                              <FrictionPill level={d.visaFriction} />
-                            </div>
-                            <div className="flex items-end justify-between gap-3">
-                              <div>
-                                <h3 className="font-heading text-2xl font-semibold sm:text-3xl">
-                                  {d.city}
-                                </h3>
-                                <p className="mt-1 max-w-xl text-sm text-white/75">
-                                  {d.tagline}
-                                </p>
-                              </div>
-                              <p className="shrink-0 text-right text-sm font-semibold">
-                                desde {formatUsd(d.fromWeeklyUsd)}
-                                <span className="block text-[11px] font-normal text-white/60">
-                                  / semana
+                  {destinationCountries.length === 0 ? (
+                    <p className="rounded-2xl border border-white/15 bg-white/5 px-4 py-5 text-sm text-white/75">
+                      No hay destinos compatibles con este idioma por ahora. Prueba otro
+                      idioma o vuelve más tarde.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {destinationCountries.map((c, i) => (
+                        <button
+                          key={c.country}
+                          type="button"
+                          onClick={() => {
+                            setDestinationCountry(c.country);
+                            setDestinationId("");
+                            setProgramId("");
+                          }}
+                          className={cn(
+                            "group relative block w-full overflow-hidden rounded-[1.25rem] text-left transition active:scale-[0.995]",
+                            destinationCountry === c.country
+                              ? "ring-2 ring-mint ring-offset-2 ring-offset-ink"
+                              : "ring-1 ring-white/15 hover:ring-white/35"
+                          )}
+                          style={{ animationDelay: `${i * 40}ms` }}
+                        >
+                          <div className="relative aspect-[16/11] sm:aspect-[21/9]">
+                            <Image
+                              src={c.heroUrl || c.imageUrl}
+                              alt={c.country}
+                              fill
+                              className="object-cover transition duration-700 group-hover:scale-[1.04]"
+                              sizes="(max-width: 768px) 100vw, 720px"
+                              priority={i === 0}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/40 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 space-y-2 p-4 sm:p-6">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <FrictionPill level={c.visaFriction} />
+                                <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] text-white/80">
+                                  {c.cities.length}{" "}
+                                  {c.cities.length === 1 ? "ciudad" : "ciudades"}
                                 </span>
+                              </div>
+                              <h3 className="font-heading text-2xl font-semibold sm:text-3xl">
+                                {c.country}
+                              </h3>
+                              <p className="max-w-xl text-sm text-white/75">
+                                {c.cities
+                                  .map((city) => city.city)
+                                  .slice(0, 4)
+                                  .join(" · ")}
+                                {c.cities.length > 4 ? " · …" : ""}
                               </p>
                             </div>
                           </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <NavRow
+                    onBack={goBack}
+                    onNext={() => destinationCountry && goNext()}
+                    nextDisabled={!destinationCountry}
+                    nextLabel="Elegir ciudad"
+                  />
+                </StepShell>
+              )}
+
+              {step === 3 && language && destinationCountry && (
+                <StepShell
+                  kicker={destinationCountry}
+                  title="¿En qué ciudad?"
+                  subtitle="Concentra tu experiencia en un lugar. Los precios aparecen más adelante, con la cotización."
+                >
+                  {citiesInCountry.length === 0 ? (
+                    <p className="rounded-2xl border border-white/15 bg-white/5 px-4 py-5 text-sm text-white/75">
+                      No hay ciudades disponibles en {destinationCountry} para este
+                      idioma.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {citiesInCountry.map((d, i) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setDestinationId(d.id);
+                            setProgramId("");
+                          }}
+                          className={cn(
+                            "group relative block w-full overflow-hidden rounded-[1.25rem] text-left transition active:scale-[0.995]",
+                            destinationId === d.id
+                              ? "ring-2 ring-mint ring-offset-2 ring-offset-ink"
+                              : "ring-1 ring-white/15 hover:ring-white/35"
+                          )}
+                          style={{ animationDelay: `${i * 40}ms` }}
+                        >
+                          <div className="relative aspect-[16/11] sm:aspect-[21/9]">
+                            <Image
+                              src={d.heroUrl || d.imageUrl}
+                              alt={`${d.city}, ${d.country}`}
+                              fill
+                              className="object-cover transition duration-700 group-hover:scale-[1.04]"
+                              sizes="(max-width: 768px) 100vw, 720px"
+                              priority={i === 0}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/35 to-transparent" />
+                            <div className="absolute inset-x-0 bottom-0 space-y-2 p-4 sm:p-6">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[11px] font-semibold tracking-[0.18em] text-mint uppercase">
+                                  {d.country}
+                                </span>
+                                <FrictionPill level={d.visaFriction} />
+                              </div>
+                              <h3 className="font-heading text-2xl font-semibold sm:text-3xl">
+                                {d.city}
+                              </h3>
+                              <p className="mt-1 max-w-xl text-sm text-white/75">
+                                {d.tagline}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <NavRow
                     onBack={goBack}
                     onNext={() => destinationId && goNext()}
@@ -517,7 +636,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 3 && (
+              {step === 4 && (
                 <StepShell
                   kicker="Fechas de viaje"
                   title="¿Cuándo arranca tu experiencia?"
@@ -575,7 +694,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 4 && (
+              {step === 5 && (
                 <StepShell
                   kicker="Programa"
                   title="Elige cómo estudiar"
@@ -644,7 +763,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 5 && (
+              {step === 6 && (
                 <StepShell
                   kicker="Extras"
                   title="Aloja, asegúrate y llega tranquilo"
@@ -706,7 +825,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 6 && (
+              {step === 7 && (
                 <StepShell
                   kicker="Resumen"
                   title="Revisa antes de pagar"
@@ -749,7 +868,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 7 && (
+              {step === 8 && (
                 <StepShell
                   kicker="Contacto"
                   title="Tus datos para el pago"
@@ -812,7 +931,7 @@ export function BookingWizard({
                 </StepShell>
               )}
 
-              {step === 8 && (
+              {step === 9 && (
                 <StepShell
                   kicker="Siguiente"
                   title="Completa el pago en Stripe"
@@ -827,7 +946,7 @@ export function BookingWizard({
                     </p>
                   </div>
                   <NavRow
-                    onBack={() => setStep(7)}
+                    onBack={() => setStep(8)}
                     onNext={() => setStep(1)}
                     nextLabel="Volver al inicio"
                   />
