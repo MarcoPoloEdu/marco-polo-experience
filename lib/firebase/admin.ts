@@ -1,7 +1,7 @@
 /**
  * Firebase Admin — verify ID tokens for /api/admin/*.
- * Prefer Admin SDK (service account). Fallback: Google tokeninfo + project/email checks
- * when only public Firebase env is present (no service account yet).
+ * Prefer Admin SDK (service account). On failure, fall back to Identity Toolkit
+ * accounts:lookup (API key) so Google-signed Firebase ID tokens still work.
  */
 
 import "server-only";
@@ -15,9 +15,22 @@ let adminApp: App | undefined;
 let adminInitAttempted = false;
 
 function hasServiceAccount(): boolean {
-  return Boolean(
-    process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY
-  ) || Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  return (
+    Boolean(process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) ||
+    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+  );
+}
+
+function normalizePrivateKey(raw: string): string {
+  let key = raw.trim();
+  // Strip wrapping quotes from .env parsers
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1);
+  }
+  return key.replace(/\\n/g, "\n");
 }
 
 function initAdmin(): App | null {
@@ -33,17 +46,15 @@ function initAdmin(): App | null {
   if (!projectId || !hasServiceAccount()) return null;
 
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
+  if (!clientEmail || !privateKeyRaw) return null;
 
   try {
-    if (clientEmail && privateKey) {
-      adminApp = initializeApp({
-        credential: cert({ projectId, clientEmail, privateKey }),
-        projectId,
-      });
-    } else {
-      adminApp = initializeApp({ projectId });
-    }
+    const privateKey = normalizePrivateKey(privateKeyRaw);
+    adminApp = initializeApp({
+      credential: cert({ projectId, clientEmail, privateKey }),
+      projectId,
+    });
     return adminApp;
   } catch (err) {
     console.warn("[firebase-admin] init failed", err);
@@ -72,54 +83,65 @@ export type VerifiedAdmin = {
   email: string;
 };
 
-async function verifyViaTokenInfo(
+/**
+ * Verify Firebase ID token via Identity Toolkit (works with client SDK tokens).
+ * Uses NEXT_PUBLIC_FIREBASE_API_KEY — no service account required.
+ */
+async function verifyViaIdentityToolkit(
   token: string
 ): Promise<{ ok: true; admin: VerifiedAdmin } | { ok: false; status: number; error: string }> {
-  const projectId =
-    process.env.FIREBASE_PROJECT_ID || process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  if (!projectId) {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!apiKey) {
     return {
       ok: false,
       status: 503,
-      error:
-        "Firebase not configured. Set NEXT_PUBLIC_FIREBASE_PROJECT_ID (and Admin credentials for production).",
+      error: "NEXT_PUBLIC_FIREBASE_API_KEY missing for token verification fallback",
     };
   }
 
   try {
     const res = await fetch(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`
+      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken: token }),
+      }
     );
-    if (!res.ok) {
+    const data = (await res.json()) as {
+      error?: { message?: string };
+      users?: Array<{
+        localId?: string;
+        email?: string;
+        emailVerified?: boolean;
+      }>;
+    };
+
+    if (!res.ok || data.error) {
+      return {
+        ok: false,
+        status: 401,
+        error: data.error?.message || "Invalid or expired ID token",
+      };
+    }
+
+    const user = data.users?.[0];
+    if (!user) {
       return { ok: false, status: 401, error: "Invalid or expired ID token" };
     }
-    const data = (await res.json()) as {
-      sub?: string;
-      email?: string;
-      email_verified?: string;
-      aud?: string;
-      azp?: string;
-    };
-    const expectedAud =
-      process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-      process.env.FIREBASE_WEB_CLIENT_ID ||
-      "";
-    // tokeninfo aud is OAuth client ID; project apps often use the web client id.
-    // Accept if aud matches appId project prefix or NEXT_PUBLIC_FIREBASE_APP_ID project.
-    const email = data.email?.toLowerCase();
-    if (!email || data.email_verified === "false") {
-      return { ok: false, status: 401, error: "Email missing or unverified" };
+    const email = user.email?.toLowerCase();
+    if (!email) {
+      return { ok: false, status: 401, error: "Email missing on token" };
+    }
+    if (user.emailVerified === false) {
+      return { ok: false, status: 401, error: "Email not verified" };
     }
     if (!isAdminEmail(email)) {
       return { ok: false, status: 403, error: "Email not on admin allowlist" };
     }
-    // Soft aud check: require some audience present; prefer matching configured client
-    if (!data.aud && !data.azp) {
-      return { ok: false, status: 401, error: "Token audience missing" };
-    }
-    void expectedAud;
-    return { ok: true, admin: { uid: data.sub || email, email } };
-  } catch {
+    return { ok: true, admin: { uid: user.localId || email, email } };
+  } catch (err) {
+    console.warn("[firebase-admin] Identity Toolkit lookup failed", err);
     return { ok: false, status: 401, error: "Token verification failed" };
   }
 }
@@ -147,11 +169,14 @@ export async function verifyAdminRequest(
         return { ok: false, status: 403, error: "Email not on admin allowlist" };
       }
       return { ok: true, admin: { uid: decoded.uid, email: email! } };
-    } catch {
-      return { ok: false, status: 401, error: "Invalid or expired ID token" };
+    } catch (err) {
+      console.warn(
+        "[firebase-admin] verifyIdToken failed, falling back to Identity Toolkit",
+        err instanceof Error ? err.message : err
+      );
+      // Fall through — SA may lack token-verify capability or key may be misparsed
     }
   }
 
-  // No service account — Google tokeninfo fallback (still enforce allowlist)
-  return verifyViaTokenInfo(token);
+  return verifyViaIdentityToolkit(token);
 }

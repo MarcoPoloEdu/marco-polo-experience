@@ -88,7 +88,7 @@ export function AdminPanel() {
     if (!user) return;
     setLoadError(null);
     try {
-      const token = await user.getIdToken();
+      const token = await user.getIdToken(true);
       const res = await fetch("/api/admin/catalog", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -134,7 +134,7 @@ export function AdminPanel() {
     if (!user) return;
     setBusyId(`${kind}:${id}`);
     try {
-      const token = await user.getIdToken();
+      const token = await user.getIdToken(true);
       const res = await fetch("/api/admin/catalog", {
         method: "PATCH",
         headers: {
