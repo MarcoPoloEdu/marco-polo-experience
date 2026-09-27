@@ -3,12 +3,14 @@
     "providers": {
       "googleSignIn": {
         "oAuthBrandDisplayName": "Marco Polo Experience",
-        "supportEmail": "admin@marcopoloeducation.com",
-        "authorizedRedirectUris": ["http://localhost", "http://127.0.0.1"]
+        "supportEmail": "admin@marcopoloeducation.com"
       }
     }
   },
   "firestore": {
-    "rules": "firestore.rules"
+    "database": "(default)",
+    "location": "nam5",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

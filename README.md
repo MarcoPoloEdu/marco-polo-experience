@@ -35,17 +35,16 @@ Copy `.env.example` → `.env.local`.
 
 ```bash
 # --- Firebase client (required for /admin Google login) ---
-# Ask the team for an EXISTING project ID or confirmation to create a NEW one.
-# Do not invent a production project ID.
+# Project: mpexperience (Marco Polo Experience)
 NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=mpexperience.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=mpexperience
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=mpexperience.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=604236537968
 NEXT_PUBLIC_FIREBASE_APP_ID=
 
-# --- Firebase Admin (preferred for production token verify + Firestore) ---
-FIREBASE_PROJECT_ID=
+# --- Firebase Admin (server token verify + Firestore curation) ---
+FIREBASE_PROJECT_ID=mpexperience
 FIREBASE_CLIENT_EMAIL=
 FIREBASE_PRIVATE_KEY=
 
