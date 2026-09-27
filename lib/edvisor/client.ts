@@ -1,36 +1,30 @@
 /**
- * Edvisor bridge stub — wire to portable export / API later.
- * Experience admin should only enable/disable complete Edvisor products.
+ * Server-only Edvisor helpers (curation + async catalog).
+ * Do not import from Client Components.
  */
 
-export interface EdvisorSchool {
-  id: string;
-  name: string;
-  enabled: boolean;
+import "server-only";
+
+import { loadExperienceCatalogSync, type ExperienceCatalog } from "@/lib/edvisor/catalog-sync";
+import { getCurationState } from "@/lib/edvisor/curation";
+import { loadEdvisorCatalog, type EdvisorProgram, type EdvisorSchool } from "@marco-polo/experience-edvisor";
+import type { CatalogSource } from "@/lib/edvisor/catalog-sync";
+
+export async function loadExperienceCatalog(): Promise<ExperienceCatalog> {
+  const curation = await getCurationState();
+  return loadExperienceCatalogSync(curation);
 }
 
-export interface EdvisorProgram {
-  id: string;
-  schoolId: string;
-  title: string;
-  weeklyPriceUsd: number;
-  enabled: boolean;
-  complete: boolean;
-}
-
-export function isEdvisorConfigured(): boolean {
-  return Boolean(process.env.EDVISOR_API_KEY && process.env.EDVISOR_API_URL);
-}
-
-/** Placeholder — returns empty; UI uses mock-catalog until export is wired. */
 export async function fetchEdvisorCatalog(): Promise<{
   schools: EdvisorSchool[];
   programs: EdvisorProgram[];
-  source: "edvisor" | "mock";
+  source: CatalogSource;
 }> {
-  if (!isEdvisorConfigured()) {
-    return { schools: [], programs: [], source: "mock" };
-  }
-  // TODO: pull from exports/marco-polo-experience-edvisor or live API
-  return { schools: [], programs: [], source: "edvisor" };
+  const exp = await loadExperienceCatalog();
+  const raw = loadEdvisorCatalog();
+  return {
+    schools: exp.schools,
+    programs: raw.programs.filter((p) => p.complete),
+    source: exp.source,
+  };
 }

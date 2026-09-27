@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAllowlistedAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'admin@marcopoloeducation.com';
+    }
+
+    // Experience curation — admin only
+    match /curation/{docId} {
+      allow read: if true; // public cotizador may read enable/disable overlays
+      allow write: if isAllowlistedAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

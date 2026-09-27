@@ -31,6 +31,8 @@ import {
 import {
   ACCOMMODATIONS,
   AIRPORT_OPTIONS,
+  CATALOG_SOURCE,
+  CATALOG_SOURCE_LABEL,
   INSURANCE_OPTIONS,
   LANGUAGES,
   NATIONALITIES,
@@ -1182,7 +1184,8 @@ function PriceBreakdown({
         </div>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Precios demo. Edvisor será la fuente de tarifas reales.
+        Curso: precios Edvisor ({CATALOG_SOURCE_LABEL}
+        {CATALOG_SOURCE === "fallback" ? " — fallback" : ""}). Extras MPE aparte.
       </p>
     </div>
   );

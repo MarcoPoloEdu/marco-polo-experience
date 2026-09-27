@@ -1,0 +1,603 @@
+{
+  "meta": {
+    "source": "marco-polo-experience-edvisor",
+    "version": "0.1.0",
+    "exportedAt": "2026-09-27T16:30:41.079Z",
+    "note": "Vendored seed shaped like exports/marco-polo-experience-edvisor. Replace by cloning MarcoPoloEdu/marcopoloeducation branch cursor/mpe-edvisor-portable-5222 when GitHub access is available. Prices/programs/schools are Edvisor-shaped catalog data — Experience curation only toggles enabled."
+  },
+  "destinations": [
+    {
+      "id": "malta-valletta",
+      "country": "Malta",
+      "city": "La Valeta",
+      "countryCode": "MT",
+      "languageCodes": [
+        "english"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1606046604972-77cc76aee944?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1546412414-e1885259563a?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Inglés mediterráneo con vibra internacional",
+      "blurb": "Isla compacta, sol casi todo el año y aulas con vista al Grand Harbour. Ideal para 4–12 semanas sin fricción de visa para la mayoría de pasaportes LatAm.",
+      "vibe": [
+        "Playa",
+        "Campus internacional",
+        "Clima suave"
+      ],
+      "visaFriction": "low",
+      "fromWeeklyUsd": 245
+    },
+    {
+      "id": "germany-berlin",
+      "country": "Alemania",
+      "city": "Berlín",
+      "countryCode": "DE",
+      "languageCodes": [
+        "german",
+        "english"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1560969184-10fe8719e047?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1599946347371-68eb71b16afc?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Capital creativa para vivir el alemán (o inglés)",
+      "blurb": "Mitte y Kreuzberg concentran escuelas boutique, cafés de estudio y una agenda cultural que convierte cada tarde en práctica real.",
+      "vibe": [
+        "Cultura",
+        "Startups",
+        "Vida urbana"
+      ],
+      "visaFriction": "low",
+      "fromWeeklyUsd": 295
+    },
+    {
+      "id": "uk-london",
+      "country": "Reino Unido",
+      "city": "Londres",
+      "countryCode": "GB",
+      "languageCodes": [
+        "english"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1529655683826-aba9b3e77383?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Inglés de primer nivel a pasos del Tube",
+      "blurb": "Covent Garden y Camden: escuelas premium, workshops en museos y networking global. Algunos pasaportes LatAm requieren visa — lo marcamos en la sugerencia.",
+      "vibe": [
+        "Premium",
+        "Networking",
+        "Ciudad global"
+      ],
+      "visaFriction": "high",
+      "fromWeeklyUsd": 340
+    },
+    {
+      "id": "ireland-dublin",
+      "country": "Irlanda",
+      "city": "Dublín",
+      "countryCode": "IE",
+      "languageCodes": [
+        "english"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1549918864-48ac978794a8?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Inglés cálido, pubs y tech scene",
+      "blurb": "Escuelas frente al Liffey, homestays amables y una comunidad latina creciente. Excelente balance precio/experiencia.",
+      "vibe": [
+        "Amigable",
+        "Tech",
+        "Historia"
+      ],
+      "visaFriction": "medium",
+      "fromWeeklyUsd": 275
+    },
+    {
+      "id": "france-paris",
+      "country": "Francia",
+      "city": "París",
+      "countryCode": "FR",
+      "languageCodes": [
+        "french"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Francés en la ciudad de la luz",
+      "blurb": "Cursos intensivos cerca del Marais, con ateliers de conversación en cafés y salidas culturales incluidas.",
+      "vibe": [
+        "Arte",
+        "Gastronomía",
+        "Moda"
+      ],
+      "visaFriction": "low",
+      "fromWeeklyUsd": 310
+    },
+    {
+      "id": "italy-rome",
+      "country": "Italia",
+      "city": "Roma",
+      "countryCode": "IT",
+      "languageCodes": [
+        "italian"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1529260830199-42c24126f198?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Italiano entre ruinas y espresso",
+      "blurb": "Escuelas boutique en Trastevere: grupos pequeños, cocina italiana los viernes y paseos lingüísticos por el centro histórico.",
+      "vibe": [
+        "Historia",
+        "Comida",
+        "Paseos"
+      ],
+      "visaFriction": "low",
+      "fromWeeklyUsd": 260
+    },
+    {
+      "id": "spain-madrid",
+      "country": "España",
+      "city": "Madrid",
+      "countryCode": "ES",
+      "languageCodes": [
+        "spanish"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1543783207-ec64e4d95325?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Español peninsular con energía capitalina",
+      "blurb": "Para quienes ya hablan español pero quieren precisión, networking europeo y vida cultural a full.",
+      "vibe": [
+        "Vida nocturna",
+        "Arte",
+        "Networking"
+      ],
+      "visaFriction": "low",
+      "fromWeeklyUsd": 230
+    },
+    {
+      "id": "canada-toronto",
+      "country": "Canadá",
+      "city": "Toronto",
+      "countryCode": "CA",
+      "languageCodes": [
+        "english"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1517090504586-fde19ea7474d?auto=format&fit=crop&w=1200&q=80",
+      "heroUrl": "https://images.unsplash.com/photo-1507992781348-3102590762bf?auto=format&fit=crop&w=1800&q=80",
+      "tagline": "Inglés multicultural en Norteamérica",
+      "blurb": "Campus modernos, pathway universitario y una ciudad que habla el idioma de los negocios globales.",
+      "vibe": [
+        "Diversidad",
+        "Carrera",
+        "Seguridad"
+      ],
+      "visaFriction": "high",
+      "fromWeeklyUsd": 355
+    }
+  ],
+  "schools": [
+    {
+      "id": "school-valletta",
+      "name": "Valletta English Academy",
+      "email": "bookings@valletta-english.example",
+      "destinationId": "malta-valletta",
+      "complete": true,
+      "edvisorProviderId": "edv-valletta"
+    },
+    {
+      "id": "school-med",
+      "name": "Mediterranean Language House",
+      "email": "hello@med-language.example",
+      "destinationId": "malta-valletta",
+      "complete": true,
+      "edvisorProviderId": "edv-med"
+    },
+    {
+      "id": "school-berlin-lingua",
+      "name": "Berlin Lingua Hub",
+      "email": "admissions@berlin-lingua.example",
+      "destinationId": "germany-berlin",
+      "complete": true,
+      "edvisorProviderId": "edv-berlin-lingua"
+    },
+    {
+      "id": "school-spree",
+      "name": "Spree Deutsch Institute",
+      "email": "info@spree-deutsch.example",
+      "destinationId": "germany-berlin",
+      "complete": true,
+      "edvisorProviderId": "edv-spree"
+    },
+    {
+      "id": "school-thames",
+      "name": "Thames Fluent School",
+      "email": "book@thamesfluent.example",
+      "destinationId": "uk-london",
+      "complete": true,
+      "edvisorProviderId": "edv-thames"
+    },
+    {
+      "id": "school-camden",
+      "name": "Camden Global English",
+      "email": "hello@camden-global.example",
+      "destinationId": "uk-london",
+      "complete": true,
+      "edvisorProviderId": "edv-camden"
+    },
+    {
+      "id": "school-liffey",
+      "name": "Liffey Language Centre",
+      "email": "study@liffey.example",
+      "destinationId": "ireland-dublin",
+      "complete": true,
+      "edvisorProviderId": "edv-liffey"
+    },
+    {
+      "id": "school-marais",
+      "name": "Atelier du Marais",
+      "email": "bonjour@atelier-marais.example",
+      "destinationId": "france-paris",
+      "complete": true,
+      "edvisorProviderId": "edv-marais"
+    },
+    {
+      "id": "school-trastevere",
+      "name": "Trastevere Italiano",
+      "email": "ciao@trastevere.example",
+      "destinationId": "italy-rome",
+      "complete": true,
+      "edvisorProviderId": "edv-trastevere"
+    },
+    {
+      "id": "school-castellana",
+      "name": "Castellana Language Hub",
+      "email": "hola@castellana.example",
+      "destinationId": "spain-madrid",
+      "complete": true,
+      "edvisorProviderId": "edv-castellana"
+    },
+    {
+      "id": "school-harbour",
+      "name": "Harbourfront English",
+      "email": "admissions@harbourfront.example",
+      "destinationId": "canada-toronto",
+      "complete": true,
+      "edvisorProviderId": "edv-harbour"
+    }
+  ],
+  "programs": [
+    {
+      "id": "valletta-general",
+      "destinationId": "malta-valletta",
+      "schoolId": "school-valletta",
+      "kind": "general",
+      "title": "Inglés general intensivo",
+      "summary": "20 lecciones/semana en grupos pequeños. Mañanas de clase, tardes libres para explorar la isla.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 245,
+      "highlights": [
+        "Máx. 12 por clase",
+        "Test de nivel gratis",
+        "Beach club"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "valletta-exam",
+      "destinationId": "malta-valletta",
+      "schoolId": "school-valletta",
+      "kind": "exam_prep",
+      "title": "Prep IELTS / Cambridge",
+      "summary": "Enfoque en skills de examen con simulacros semanales y feedback 1:1.",
+      "lessonsPerWeek": 24,
+      "weeklyPriceUsd": 285,
+      "highlights": [
+        "Simulacros semanales",
+        "Coaching 1:1",
+        "Material incluido"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "valletta-plus30",
+      "destinationId": "malta-valletta",
+      "schoolId": "school-med",
+      "kind": "plus30",
+      "title": "Inglés +30",
+      "summary": "Grupos solo adultos 30+. Ritmo profesional, networking y horarios flexibles.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 295,
+      "highlights": [
+        "Solo +30",
+        "Business modules",
+        "Happy hours"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1523240795612-9a85b54ece25?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "berlin-general",
+      "destinationId": "germany-berlin",
+      "schoolId": "school-berlin-lingua",
+      "kind": "general",
+      "title": "Alemán general intensivo",
+      "summary": "A1–B2 en Mitte. Laboratorios de conversación dos veces por semana.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 295,
+      "highlights": [
+        "Campus Mitte",
+        "Club de conversación",
+        "Wi‑Fi lounge"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "berlin-exam",
+      "destinationId": "germany-berlin",
+      "schoolId": "school-spree",
+      "kind": "exam_prep",
+      "title": "Prep Goethe / TestDaF",
+      "summary": "Ruta estructurada a examen oficial con profesores examinadores.",
+      "lessonsPerWeek": 25,
+      "weeklyPriceUsd": 330,
+      "highlights": [
+        "Goethe ready",
+        "Homework clinic",
+        "Homestay cerca"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "berlin-english",
+      "destinationId": "germany-berlin",
+      "schoolId": "school-berlin-lingua",
+      "kind": "general",
+      "title": "Inglés en Berlín",
+      "summary": "Inglés internacional en la capital alemana — ambiente startup.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 280,
+      "highlights": [
+        "Grupos mixtos",
+        "After-work English",
+        "Kreuzberg"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "london-general",
+      "destinationId": "uk-london",
+      "schoolId": "school-thames",
+      "kind": "general",
+      "title": "Inglés general Covent Garden",
+      "summary": "20 lecciones + talleres de museo los viernes.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 355,
+      "highlights": [
+        "Covent Garden",
+        "Museum Fridays",
+        "Pronunciation lab"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1523240795612-9a85b54ece25?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "london-exam",
+      "destinationId": "uk-london",
+      "schoolId": "school-camden",
+      "kind": "exam_prep",
+      "title": "Prep IELTS Londres",
+      "summary": "Bootcamp IELTS con day trips opcionales a Oxford.",
+      "lessonsPerWeek": 25,
+      "weeklyPriceUsd": 375,
+      "highlights": [
+        "IELTS focus",
+        "Agenda social",
+        "Camden campus"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "london-plus30",
+      "destinationId": "uk-london",
+      "schoolId": "school-thames",
+      "kind": "plus30",
+      "title": "Inglés +30 Londres",
+      "summary": "Cohortes adultas, business English y networking evening.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 390,
+      "highlights": [
+        "Solo +30",
+        "Business English",
+        "Support 24/7"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "dublin-general",
+      "destinationId": "ireland-dublin",
+      "schoolId": "school-liffey",
+      "kind": "general",
+      "title": "Inglés general Dublín",
+      "summary": "Campus junto al río, teachers nativos y social calendar fuerte.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 275,
+      "highlights": [
+        "River campus",
+        "Social calendar",
+        "Homestay IE"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1546412414-e1885259563a?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "dublin-plus30",
+      "destinationId": "ireland-dublin",
+      "schoolId": "school-liffey",
+      "kind": "plus30",
+      "title": "Inglés +30 Dublín",
+      "summary": "Clases de mañana para profesionales; networking tech jueves.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 305,
+      "highlights": [
+        "+30 only",
+        "Tech Thursday",
+        "Flexible evenings"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "paris-general",
+      "destinationId": "france-paris",
+      "schoolId": "school-marais",
+      "kind": "general",
+      "title": "Francés general",
+      "summary": "Inmersión en el Marais con ateliers de café conversation.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 310,
+      "highlights": [
+        "Marais",
+        "Café ateliers",
+        "Culture walks"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "paris-exam",
+      "destinationId": "france-paris",
+      "schoolId": "school-marais",
+      "kind": "exam_prep",
+      "title": "Prep DELF / DALF",
+      "summary": "Preparación oficial con mock exams mensuales.",
+      "lessonsPerWeek": 24,
+      "weeklyPriceUsd": 345,
+      "highlights": [
+        "DELF/DALF",
+        "Mock exams",
+        "Oral coaching"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "rome-general",
+      "destinationId": "italy-rome",
+      "schoolId": "school-trastevere",
+      "kind": "general",
+      "title": "Italiano general",
+      "summary": "Grupos pequeños + cocina italiana los viernes.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 260,
+      "highlights": [
+        "Trastevere",
+        "Cooking Friday",
+        "Walking lessons"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1523240795612-9a85b54ece25?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "madrid-general",
+      "destinationId": "spain-madrid",
+      "schoolId": "school-castellana",
+      "kind": "general",
+      "title": "Español peninsular",
+      "summary": "Perfeccionamiento para hispanohablantes LatAm.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 230,
+      "highlights": [
+        "Acento peninsular",
+        "Networking EU",
+        "Malasaña"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "toronto-general",
+      "destinationId": "canada-toronto",
+      "schoolId": "school-harbour",
+      "kind": "general",
+      "title": "Inglés general Toronto",
+      "summary": "Campus moderno con pathway universitario opcional.",
+      "lessonsPerWeek": 20,
+      "weeklyPriceUsd": 355,
+      "highlights": [
+        "Pathway uni",
+        "Downtown",
+        "Career workshops"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    },
+    {
+      "id": "toronto-exam",
+      "destinationId": "canada-toronto",
+      "schoolId": "school-harbour",
+      "kind": "exam_prep",
+      "title": "Prep IELTS / TOEFL",
+      "summary": "Track intensivo para admisiones canadienses.",
+      "lessonsPerWeek": 25,
+      "weeklyPriceUsd": 385,
+      "highlights": [
+        "IELTS/TOEFL",
+        "Uni advising",
+        "Lab hours"
+      ],
+      "imageUrl": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1000&q=80",
+      "complete": true,
+      "currency": "USD",
+      "minWeeks": 4,
+      "maxWeeks": 24
+    }
+  ]
+}

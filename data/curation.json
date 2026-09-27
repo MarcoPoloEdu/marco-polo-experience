@@ -1,0 +1,7 @@
+{
+  "schools": {},
+  "programs": {},
+  "updatedAt": null,
+  "updatedBy": null,
+  "note": "Local curation fallback when Firestore is not configured. Empty maps = all complete Edvisor items enabled."
+}
