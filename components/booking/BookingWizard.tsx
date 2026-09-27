@@ -400,7 +400,12 @@ export function BookingWizard({
                 <Select
                   value={nationality || undefined}
                   onValueChange={(v) => {
-                    if (v) setNationality(v as NationalityCode);
+                    if (v) {
+                      setNationality(v as NationalityCode);
+                      setDestinationCountry("");
+                      setDestinationId("");
+                      setProgramId("");
+                    }
                   }}
                   items={nationalityItems}
                 >
