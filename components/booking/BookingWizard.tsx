@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,6 +53,30 @@ import {
 import { cn } from "@/lib/utils";
 import { buildBookingEmails, type EmailPayload } from "@/lib/email";
 
+const PASSPORT_SLUG: Record<NationalityCode, string> = {
+  COL: "colombia",
+  MEX: "mexico",
+  PER: "peru",
+  CHL: "chile",
+  ARG: "argentina",
+  BRA: "brasil",
+  ECU: "ecuador",
+  URY: "uruguay",
+  CRI: "costa-rica",
+  PAN: "panama",
+};
+
+const LANGUAGE_CHIPS: LanguageCode[] = [
+  "english",
+  "french",
+  "german",
+  "spanish",
+  "italian",
+];
+
+const DEST_LINE =
+  "🇨🇦 Toronto · 🇬🇧 Londres · 🇮🇪 Dublín · 🇺🇸 Nueva York · y más";
+
 const STEPS = [
   { id: 1, label: "País" },
   { id: 2, label: "Destino" },
@@ -89,14 +114,31 @@ function luhnOk(num: string): boolean {
   return sum % 10 === 0;
 }
 
-export function BookingWizard() {
-  const [step, setStep] = useState(1);
-  const [nationality, setNationality] = useState<NationalityCode | "">("");
-  const [language, setLanguage] = useState<LanguageCode | "">("");
-  const [destinationId, setDestinationId] = useState("");
+export function BookingWizard({
+  initialNationality,
+  initialLanguage,
+  initialDestinationId,
+  initialProgramId,
+  startAtStep,
+}: {
+  initialNationality?: NationalityCode;
+  initialLanguage?: LanguageCode;
+  initialDestinationId?: string;
+  initialProgramId?: string;
+  startAtStep?: number;
+} = {}) {
+  const router = useRouter();
+  const [step, setStep] = useState(startAtStep && startAtStep >= 1 && startAtStep <= 8 ? startAtStep : 1);
+  const [nationality, setNationality] = useState<NationalityCode | "">(
+    initialNationality ?? ""
+  );
+  const [language, setLanguage] = useState<LanguageCode | "">(
+    initialLanguage ?? ""
+  );
+  const [destinationId, setDestinationId] = useState(initialDestinationId ?? "");
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [weeks, setWeeks] = useState<WeekOption>(4);
-  const [programId, setProgramId] = useState("");
+  const [programId, setProgramId] = useState(initialProgramId ?? "");
   const [accommodationId, setAccommodationId] = useState("homestay");
   const [insuranceId, setInsuranceId] = useState("guardme");
   const [airportId, setAirportId] = useState("shared");
@@ -163,6 +205,13 @@ export function BookingWizard() {
 
   const showSidebar = step >= 5 && step <= 7;
   const atmosphereUrl = destination?.heroUrl ?? HERO_FALLBACK;
+
+  function submitSearch() {
+    if (!nationality || !language) return;
+    const passport = PASSPORT_SLUG[nationality];
+    const params = new URLSearchParams({ passport, language });
+    router.push(`/courses?${params.toString()}`);
+  }
 
   function goNext() {
     setError(null);
@@ -342,35 +391,49 @@ export function BookingWizard() {
           <ProgressTrail step={step} label={currentStepMeta.label} />
         )}
 
-        {/* STEP 1 — brand-first hero */}
+        {/* STEP 1 — brand-first hero + search */}
         {step === 1 && (
-          <section className="flex min-h-[78dvh] flex-col justify-end gap-8 pb-2 pt-10 sm:min-h-[82dvh] sm:pb-6">
-            <div className="max-w-3xl space-y-5">
-              <p className="animate-rise text-xs font-semibold tracking-[0.28em] text-mint uppercase sm:text-sm">
-                Marco Polo Experience
-              </p>
-              <h1 className="animate-rise-delay-1 font-heading text-[2.35rem] leading-[1.05] font-semibold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                No se trata solo de aprender un idioma.
-                <span className="mt-2 block bg-gradient-to-r from-mint via-sky-300 to-indigo bg-clip-text text-transparent">
-                  Se trata de vivirlo.
+          <section className="flex min-h-0 flex-col justify-end gap-4 pb-2 pt-6 sm:min-h-[78dvh] sm:gap-7 sm:pb-6 sm:pt-10">
+            <div className="max-w-3xl space-y-3 sm:space-y-5">
+              <div className="animate-rise space-y-1">
+                <p className="font-heading text-lg font-semibold tracking-tight text-white sm:text-xl">
+                  Marco Polo Experience
+                </p>
+                <p className="text-xs font-medium text-white/60 sm:text-sm">
+                  by Marco Polo Education
+                </p>
+              </div>
+              <h1 className="animate-rise-delay-1 font-heading text-[1.85rem] leading-[1.12] font-semibold tracking-tight sm:text-5xl md:text-6xl">
+                Vive un idioma.{" "}
+                <span className="bg-gradient-to-r from-mint via-sky-300 to-indigo bg-clip-text text-transparent">
+                  No solo lo estudies.
                 </span>
               </h1>
-              <p className="animate-rise-delay-2 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
-                Cursos cortos en ciudades icónicas. Hermana de Marco Polo Education —
-                confianza de asesoría, velocidad de ecommerce.
+              <p className="animate-rise-delay-2 max-w-xl text-sm leading-snug text-white/75 sm:text-lg sm:leading-relaxed">
+                Encuentra, compara y reserva cursos cortos de idiomas alrededor del
+                mundo. Todo online.
+              </p>
+              <p className="animate-rise-delay-2 text-xs text-white/55 sm:text-sm">
+                {DEST_LINE}
               </p>
             </div>
 
-            <div className="animate-rise-delay-2 space-y-4 rounded-[1.5rem] border border-white/15 bg-white/10 p-4 backdrop-blur-xl sm:p-5">
-              <p className="text-sm font-medium text-white/80">
-                Empieza por tu pasaporte y el idioma que quieres vivir
-              </p>
-              <div className="space-y-2">
+            <div className="animate-rise-delay-2 space-y-3 rounded-[1.35rem] border border-white/15 bg-white/10 p-3.5 backdrop-blur-xl sm:space-y-4 sm:rounded-[1.5rem] sm:p-5">
+              <div className="space-y-1">
+                <p className="text-xs text-white/65 sm:text-sm">
+                  Te mostraremos destinos y cursos compatibles con tu pasaporte.
+                </p>
+                <h2 className="font-heading text-base font-semibold text-white sm:text-xl">
+                  ¿Dónde quieres vivir tu próxima experiencia?
+                </h2>
+              </div>
+
+              <div className="space-y-1.5">
                 <label
                   htmlFor="nationality-select"
-                  className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase"
+                  className="text-xs font-medium text-white/70"
                 >
-                  Nacionalidad / País
+                  País de pasaporte
                 </label>
                 <Select
                   value={nationality || undefined}
@@ -381,9 +444,9 @@ export function BookingWizard() {
                 >
                   <SelectTrigger
                     id="nationality-select"
-                    className="h-12 w-full border-white/20 bg-white/95 text-base text-ink"
+                    className="h-11 min-h-11 w-full border-white/20 bg-white/95 text-base text-ink sm:h-12"
                   >
-                    <SelectValue placeholder="Elige tu país de pasaporte" />
+                    <SelectValue placeholder="Selecciona tu país" />
                   </SelectTrigger>
                   <SelectContent>
                     {NATIONALITIES.map((n) => (
@@ -394,44 +457,55 @@ export function BookingWizard() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-3">
-                <p className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
-                  Idioma
+
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-white/70">
+                  Idioma que quieres aprender
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {LANGUAGES.map((l) => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => {
-                        setLanguage(l.code);
-                        setDestinationId("");
-                        setProgramId("");
-                      }}
-                      className={cn(
-                        "min-h-11 rounded-full border px-4 py-2 text-sm font-semibold transition active:scale-[0.98]",
-                        language === l.code
-                          ? "border-transparent bg-indigo text-white"
-                          : "border-white/20 bg-white/5 text-white/85 hover:bg-white/10"
-                      )}
-                    >
-                      {l.label}
-                    </button>
-                  ))}
+                  {LANGUAGE_CHIPS.map((code) => {
+                    const l = LANGUAGES.find((x) => x.code === code);
+                    if (!l) return null;
+                    return (
+                      <button
+                        key={l.code}
+                        type="button"
+                        onClick={() => {
+                          setLanguage(l.code);
+                          setDestinationId("");
+                          setProgramId("");
+                        }}
+                        className={cn(
+                          "min-h-11 rounded-full border px-3.5 py-2 text-sm font-semibold transition active:scale-[0.98]",
+                          language === l.code
+                            ? "border-transparent bg-indigo text-white"
+                            : "border-white/20 bg-white/5 text-white/85 hover:bg-white/10"
+                        )}
+                      >
+                        {l.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={!nationality || !language}
-                onClick={goNext}
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "mt-1 h-12 w-full gap-2 border-0 text-ink gradient-cta disabled:opacity-40 sm:w-auto sm:min-w-[220px]"
-                )}
-              >
-                Ver destinos
-                <ArrowRight className="size-4" />
-              </button>
+
+              <div className="space-y-2 pt-0.5">
+                <button
+                  type="button"
+                  disabled={!nationality || !language}
+                  onClick={submitSearch}
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    "h-12 min-h-12 w-full gap-2 border-0 text-base text-ink gradient-cta disabled:opacity-40"
+                  )}
+                >
+                  Ver cursos
+                  <ArrowRight className="size-4" />
+                </button>
+                <p className="text-center text-[11px] leading-snug text-white/50 sm:text-xs">
+                  Asesoría disponible · Escuelas verificadas · Reserva segura
+                </p>
+              </div>
             </div>
           </section>
         )}
@@ -987,8 +1061,8 @@ function BrandHeader() {
           <p className="truncate font-heading text-base font-semibold tracking-tight sm:text-lg">
             Marco Polo Experience
           </p>
-          <p className="truncate text-[11px] font-medium tracking-wide text-white/55 uppercase">
-            Hermana de Marco Polo Education
+          <p className="truncate text-[11px] font-medium text-white/55">
+            by Marco Polo Education
           </p>
         </div>
       </div>
@@ -998,7 +1072,7 @@ function BrandHeader() {
         rel="noreferrer"
         className="shrink-0 rounded-full bg-white/10 px-3 py-2.5 text-xs font-semibold ring-1 ring-white/25 transition hover:bg-white/15 sm:px-4 sm:text-sm"
       >
-        Asesoría MPE
+        Hablar con un asesor
       </a>
     </header>
   );
