@@ -11,6 +11,26 @@ service cloud.firestore {
       allow write: if isAllowlistedAdmin();
     }
 
+    // Catalog versions, bookings, quotes, jobs, stripe events: Admin SDK only
+    match /catalogVersions/{id} {
+      allow read, write: if false;
+    }
+    match /catalogMeta/{id} {
+      allow read, write: if false;
+    }
+    match /bookings/{id} {
+      allow read, write: if false;
+    }
+    match /quotes/{id} {
+      allow read, write: if false;
+    }
+    match /stripeEvents/{id} {
+      allow read, write: if false;
+    }
+    match /jobs/{id} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

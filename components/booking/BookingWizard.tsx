@@ -14,11 +14,9 @@ import {
   CreditCard,
   Loader2,
   Lock,
-  Mail,
   MapPin,
   Plane,
   Shield,
-  Sparkles,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -53,7 +51,6 @@ import {
   formatUsd,
 } from "@/lib/booking/pricing";
 import { cn } from "@/lib/utils";
-import { buildBookingEmails, type EmailPayload } from "@/lib/email";
 
 const PASSPORT_SLUG: Record<NationalityCode, string> = {
   COL: "colombia",
@@ -72,8 +69,8 @@ const LANGUAGE_CHIPS: LanguageCode[] = [
   "english",
   "french",
   "german",
-  "spanish",
   "italian",
+  "portuguese",
 ];
 
 const DEST_LINE =
@@ -85,7 +82,7 @@ const STEPS = [
   { id: 3, label: "Fechas" },
   { id: 4, label: "Programa" },
   { id: 5, label: "Extras" },
-  { id: 6, label: "Tarjeta" },
+  { id: 6, label: "Resumen" },
   { id: 7, label: "Contacto" },
   { id: 8, label: "Listo" },
 ] as const;
@@ -97,23 +94,6 @@ function defaultStartDate() {
   const d = new Date();
   d.setDate(d.getDate() + 21);
   return d.toISOString().slice(0, 10);
-}
-
-function luhnOk(num: string): boolean {
-  const digits = num.replace(/\D/g, "");
-  if (digits.length < 13 || digits.length > 19) return false;
-  let sum = 0;
-  let alt = false;
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let n = Number(digits[i]);
-    if (alt) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    alt = !alt;
-  }
-  return sum % 10 === 0;
 }
 
 export function BookingWizard({
@@ -141,25 +121,15 @@ export function BookingWizard({
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [weeks, setWeeks] = useState<WeekOption>(4);
   const [programId, setProgramId] = useState(initialProgramId ?? "");
-  const [accommodationId, setAccommodationId] = useState("homestay");
-  const [insuranceId, setInsuranceId] = useState("guardme");
-  const [airportId, setAirportId] = useState("shared");
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExp, setCardExp] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
-  const [cardLast4, setCardLast4] = useState("");
-  const [cardBrand, setCardBrand] = useState("visa");
+  const [accommodationId, setAccommodationId] = useState("none");
+  const [insuranceId, setInsuranceId] = useState("none");
+  const [airportId, setAirportId] = useState("none");
+  const [studentAge, setStudentAge] = useState<number | "">("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [bookingId, setBookingId] = useState<string | null>(null);
-  const [emails, setEmails] = useState<EmailPayload[]>([]);
-  const [paymentMode, setPaymentMode] = useState<"stripe" | "mock" | null>(null);
-  const [emailProvider, setEmailProvider] = useState<"resend" | "log" | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
 
   const nationalityItems = useMemo(
@@ -227,44 +197,37 @@ export function BookingWizard({
     setStep((s) => Math.max(1, s - 1));
   }
 
-  function validateCardAndContinue() {
+  function continueFromSummary() {
     setError(null);
-    const digits = cardNumber.replace(/\D/g, "");
-    if (cardName.trim().length < 2) {
-      setError("Ingresa el nombre como aparece en la tarjeta.");
+    if (!studentAge || studentAge < 1) {
+      setError("Indica la edad del estudiante antes de continuar.");
       return;
     }
-    if (!luhnOk(digits)) {
-      setError("Número de tarjeta inválido. Tip demo: 4242 4242 4242 4242.");
+    if (
+      accommodationId !== "none" ||
+      insuranceId !== "none" ||
+      airportId !== "none"
+    ) {
+      setError(
+        "En esta versión solo se cobra el curso con precio Edvisor exacto. Deja extras en «sin»."
+      );
       return;
     }
-    if (!/^\d{2}\/\d{2}$/.test(cardExp)) {
-      setError("Fecha MM/AA inválida.");
-      return;
-    }
-    if (!/^\d{3,4}$/.test(cardCvc)) {
-      setError("CVC inválido.");
-      return;
-    }
-    setPaymentMethodId(`mock_pm_${digits.slice(-4)}_${Date.now().toString(36)}`);
-    setCardLast4(digits.slice(-4));
-    setCardBrand(digits.startsWith("4") ? "visa" : "card");
     goNext();
   }
 
   async function chargeOnContact() {
     setError(null);
-    if (!paymentMethodId) {
-      setError("Primero valida tu tarjeta.");
-      setStep(6);
-      return;
-    }
     if (
       contactName.trim().length < 2 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail.trim()) ||
       contactPhone.trim().length < 7
     ) {
       setError("Completa nombre, email y teléfono.");
+      return;
+    }
+    if (!studentAge || studentAge < 1) {
+      setError("Indica la edad del estudiante. No se asume automáticamente.");
       return;
     }
 
@@ -276,83 +239,44 @@ export function BookingWizard({
       programId,
       startDate,
       weeks,
-      accommodationId,
-      insuranceId,
-      airportId,
+      accommodationId: "none",
+      insuranceId: "none",
+      airportId: "none",
+      studentAge,
+      travelDepartureDate: startDate,
       contact: {
         name: contactName.trim(),
         email: contactEmail.trim(),
         phone: contactPhone.trim(),
       },
-      card: {
-        brand: cardBrand,
-        last4: cardLast4,
-        mockPaymentMethodId: paymentMethodId,
-      },
     };
 
     try {
-      let data: {
+      const res = await fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json()) as {
         bookingId?: string;
-        emails?: EmailPayload[];
-        paymentMode?: "stripe" | "mock";
-        emailDelivery?: { provider?: "resend" | "log" };
-      } | null = null;
+        checkoutUrl?: string;
+        error?: string;
+        code?: string;
+        charged?: boolean;
+      };
 
-      try {
-        const res = await fetch("/api/book", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (res.ok) data = await res.json();
-      } catch {
-        data = null;
+      if (!res.ok || !data.checkoutUrl) {
+        setError(
+          data.error ??
+            "No se pudo iniciar el pago seguro. No hay cobro simulado."
+        );
+        return;
       }
 
-      if (!data?.bookingId) {
-        const dest = getDestination(destinationId);
-        const prog = getProgram(programId);
-        const id = `MPE-${Date.now().toString(36).toUpperCase()}`;
-        const end = addWeeks(startDate, weeks);
-        const built = buildBookingEmails({
-          bookingId: id,
-          customerName: contactName.trim(),
-          customerEmail: contactEmail.trim(),
-          customerPhone: contactPhone.trim(),
-          nationalityLabel:
-            NATIONALITIES.find((n) => n.code === nationality)?.label ??
-            String(nationality),
-          languageLabel:
-            LANGUAGES.find((l) => l.code === language)?.label ?? String(language),
-          destinationLabel: dest ? `${dest.city}, ${dest.country}` : destinationId,
-          programTitle: prog?.title ?? programId,
-          schoolName: prog?.schoolName ?? "Escuela",
-          schoolEmail: prog?.schoolEmail ?? "school@example.com",
-          startDate: formatDateEs(startDate),
-          endDate: formatDateEs(end),
-          weeks,
-          totalUsd: pricing.total,
-          extrasSummary: "Mock extras",
-          charged: true,
-          paymentMode: "mock",
-        });
-        console.info("[book:client-mock]", id, built);
-        data = {
-          bookingId: id,
-          emails: built,
-          paymentMode: "mock",
-          emailDelivery: { provider: "log" },
-        };
-      }
-
-      setBookingId(data.bookingId!);
-      setEmails(data.emails ?? []);
-      setPaymentMode(data.paymentMode ?? "mock");
-      setEmailProvider(data.emailDelivery?.provider ?? "log");
-      setStep(8);
+      // Never mark paid in the browser — Stripe Checkout + webhook only.
+      window.location.href = data.checkoutUrl;
     } catch {
-      setError("Error al confirmar. Intenta de nuevo.");
+      setError("Error de red al iniciar Checkout. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -773,58 +697,52 @@ export function BookingWizard({
                       />
                     ))}
                   </ExtrasBlock>
-                  <NavRow onBack={goBack} onNext={goNext} nextLabel="Agregar tarjeta" />
+                  <p className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2.5 text-xs text-amber-50/90">
+                    Los precios de extras locales son informativos. El cobro V2 solo
+                    incluye el curso con cotización Edvisor exacta — deja extras en
+                    «sin» para pagar.
+                  </p>
+                  <NavRow onBack={goBack} onNext={goNext} nextLabel="Ver resumen" />
                 </StepShell>
               )}
 
               {step === 6 && (
                 <StepShell
-                  kicker="Pago"
-                  title="Valida tu tarjeta"
-                  subtitle="Aún no cobramos. El cargo ocurre al enviar tus datos de contacto."
+                  kicker="Resumen"
+                  title="Revisa antes de pagar"
+                  subtitle="El cargo se hace en Stripe Checkout (página segura). Esta pantalla no confirma el pago."
                 >
                   <div className="mb-4 flex items-start gap-2 rounded-xl border border-white/15 bg-ink/40 px-3 py-2.5 text-xs text-white/70">
                     <Lock className="mt-0.5 size-3.5 shrink-0 text-mint" />
-                    Demo:{" "}
-                    <code className="rounded bg-black/30 px-1">4242 4242 4242 4242</code>, MM/AA
-                    futuro, CVC de 3 dígitos.
+                    No pedimos número de tarjeta aquí. Stripe procesa el cobro al
+                    100% por adelantado tras confirmar contacto.
                   </div>
                   <div className="grid gap-3">
                     <FieldInput
-                      label="Nombre en la tarjeta"
-                      value={cardName}
-                      onChange={setCardName}
-                      autoComplete="cc-name"
+                      label="Edad del estudiante (en la fecha de inicio)"
+                      value={studentAge === "" ? "" : String(studentAge)}
+                      onChange={(v) => {
+                        const n = Number(v.replace(/\D/g, ""));
+                        setStudentAge(v.trim() === "" || !Number.isFinite(n) ? "" : n);
+                      }}
+                      inputMode="numeric"
+                      placeholder="Ej. 22"
                     />
-                    <FieldInput
-                      label="Número"
-                      value={cardNumber}
-                      onChange={setCardNumber}
-                      autoComplete="cc-number"
-                      className="font-mono"
-                      placeholder="4242 4242 4242 4242"
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <FieldInput
-                        label="MM/AA"
-                        value={cardExp}
-                        onChange={setCardExp}
-                        autoComplete="cc-exp"
-                        placeholder="12/28"
-                      />
-                      <FieldInput
-                        label="CVC"
-                        value={cardCvc}
-                        onChange={setCardCvc}
-                        autoComplete="cc-csc"
-                        placeholder="123"
-                      />
+                    <div className="rounded-xl border border-white/15 bg-white/5 px-3 py-3 text-sm text-white/80">
+                      <p>
+                        {program?.title ?? "Programa"} · {weeks} semanas · inicio{" "}
+                        {formatDateEs(startDate)}
+                      </p>
+                      <p className="mt-1 text-white/50">
+                        Total informativo catálogo: {formatUsd(pricing.courseTotal)}{" "}
+                        (el total cobrado será el de la cotización Edvisor exacta).
+                      </p>
                     </div>
                   </div>
                   {error && <ErrorBox message={error} />}
                   <NavRow
                     onBack={goBack}
-                    onNext={validateCardAndContinue}
+                    onNext={continueFromSummary}
                     nextLabel="Continuar"
                     nextIcon={<CreditCard className="size-4" />}
                   />
@@ -834,15 +752,9 @@ export function BookingWizard({
               {step === 7 && (
                 <StepShell
                   kicker="Contacto"
-                  title="Tus datos para confirmar"
-                  subtitle="Al enviar cobramos y disparamos las 3 confirmaciones."
+                  title="Tus datos para el pago"
+                  subtitle="Al enviar te llevamos a Stripe Checkout. El pago solo se confirma por webhook firmado."
                 >
-                  {paymentMethodId && (
-                    <div className="mb-4 flex items-center gap-2 rounded-xl border border-mint/35 bg-mint/10 px-3 py-2.5 text-sm">
-                      <Check className="size-4 text-mint" />
-                      {cardBrand.toUpperCase()} ···· {cardLast4} lista
-                    </div>
-                  )}
                   <div className="grid gap-3">
                     <FieldInput
                       label="Nombre completo"
@@ -890,72 +802,35 @@ export function BookingWizard({
                       {loading ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
-                        <Sparkles className="size-4" />
+                        <Lock className="size-4" />
                       )}
                       {loading
-                        ? "Confirmando…"
-                        : `Confirmar y pagar ${formatUsd(pricing.total)}`}
+                        ? "Abriendo Stripe…"
+                        : "Ir a pago seguro (Stripe)"}
                     </button>
                   </div>
                 </StepShell>
               )}
 
-              {step === 8 && bookingId && (
+              {step === 8 && (
                 <StepShell
-                  kicker="Confirmación"
-                  title="¡Tu experiencia está reservada!"
-                  subtitle={`${bookingId} · ${paymentMode === "stripe" ? "Stripe" : "demo mock"} · emails vía ${emailProvider === "resend" ? "Resend" : "vista previa"}`}
+                  kicker="Siguiente"
+                  title="Completa el pago en Stripe"
+                  subtitle="Si cerraste la ventana, vuelve a intentar desde Contacto. Esta app no marca la reserva como pagada hasta el webhook."
                 >
                   <div className="mb-5 flex items-start gap-3 rounded-2xl border border-mint/40 bg-mint/15 p-4">
-                    <Check className="mt-0.5 size-6 shrink-0 text-mint" />
-                    <div>
-                      <p className="font-heading text-xl font-semibold">
-                        {contactName}, bienvenido a Marco Polo Experience
-                      </p>
-                      <p className="mt-1 text-sm text-white/75">
-                        {destination?.city} · {program?.title} · {formatDateEs(startDate)} →{" "}
-                        {formatDateEs(endDate)}
-                      </p>
-                    </div>
+                    <Lock className="mt-0.5 size-6 shrink-0 text-mint" />
+                    <p className="text-sm text-white/85">
+                      Tras pagar verás la página de éxito. La confirmación operativa
+                      llega cuando Stripe firma el evento{" "}
+                      <code className="text-xs">checkout.session.completed</code>.
+                    </p>
                   </div>
-                  <h3 className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
-                    <Mail className="size-4 text-mint" />
-                    Tres correos
-                  </h3>
-                  <div className="space-y-3">
-                    {emails.map((e) => (
-                      <details
-                        key={e.id}
-                        className="rounded-xl border border-white/15 bg-black/25 open:bg-black/35"
-                        open={e.id === "cliente"}
-                      >
-                        <summary className="cursor-pointer list-none px-4 py-3">
-                          <p className="text-[11px] font-semibold tracking-wide text-mint uppercase">
-                            {e.id === "cliente"
-                              ? "1 · Cliente"
-                              : e.id === "escuela"
-                                ? "2 · Escuela"
-                                : "3 · Marco Polo interno"}
-                          </p>
-                          <p className="text-sm font-medium">{e.subject}</p>
-                          <p className="text-xs text-white/55">Para: {e.to}</p>
-                        </summary>
-                        <pre className="overflow-x-auto whitespace-pre-wrap border-t border-white/10 px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">
-                          {e.body}
-                        </pre>
-                      </details>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => window.location.assign("/")}
-                    className={cn(
-                      buttonVariants({ size: "lg" }),
-                      "mt-6 h-12 border-0 text-ink gradient-cta"
-                    )}
-                  >
-                    Nueva reserva demo
-                  </button>
+                  <NavRow
+                    onBack={() => setStep(7)}
+                    onNext={() => setStep(1)}
+                    nextLabel="Volver al inicio"
+                  />
                 </StepShell>
               )}
             </div>
@@ -1324,6 +1199,7 @@ function FieldInput({
   placeholder,
   type = "text",
   className,
+  inputMode,
 }: {
   label: string;
   value: string;
@@ -1332,6 +1208,7 @@ function FieldInput({
   placeholder?: string;
   type?: string;
   className?: string;
+  inputMode?: "numeric" | "text" | "email" | "tel" | "search" | "url" | "none" | "decimal";
 }) {
   return (
     <label className="block space-y-1.5 text-sm">
@@ -1342,6 +1219,7 @@ function FieldInput({
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        inputMode={inputMode}
         className={cn(
           "h-12 w-full rounded-xl border border-white/20 bg-white px-3 text-base text-ink outline-none focus:ring-2 focus:ring-mint",
           className

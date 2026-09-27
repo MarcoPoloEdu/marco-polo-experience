@@ -72,14 +72,14 @@ export const LANGUAGES: LanguageOption[] = [
     tagline: "Cultura, gastronomía y diplomacia",
   },
   {
-    code: "spanish",
-    label: "Español",
-    tagline: "Para latinos que quieren perfeccionar el acento peninsular",
-  },
-  {
     code: "italian",
     label: "Italiano",
     tagline: "Arte, design y dolce vita",
+  },
+  {
+    code: "portuguese",
+    label: "Portugués",
+    tagline: "Brasil, Portugal y el atlántico lusófono",
   },
 ];
 
@@ -215,8 +215,9 @@ export function enabledPrograms(destinationId: string, language: LanguageCode): 
   if (language === "italian") {
     return all.filter((p) => /italiano/i.test(p.title));
   }
-  if (language === "spanish") {
-    return all.filter((p) => /español/i.test(p.title));
+  if (language === "portuguese") {
+    // No inventar programas: si no hay oferta compatible, lista vacía.
+    return all.filter((p) => /portugu[eé]s|brazilian|lisboa|portugal/i.test(p.title));
   }
   return all;
 }

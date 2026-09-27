@@ -1,48 +1,44 @@
 import { NextResponse } from "next/server";
-import { getSchool } from "@/lib/data/schools";
-import { calculatePricing } from "@/lib/pricing";
-import { getAppBaseUrl, getStripe, isStripeConfigured } from "@/lib/stripe";
-import type { AccommodationType, DurationWeeks } from "@/lib/types";
+import { createHash } from "crypto";
+import { startStripeCheckout } from "@/lib/bookings/checkout";
+import { resolveEdvisorCatalog } from "@/lib/edvisor/resolve-catalog";
+import {
+  getCurationState,
+  isProgramEnabled,
+  isSchoolEnabled,
+} from "@/lib/edvisor/curation";
+import { iso2FromUiNationality } from "@/lib/nationality";
 
 export const runtime = "nodejs";
 
 interface CheckoutBody {
+  /** Legacy school slug path — resolved via catalog when possible */
   schoolSlug?: string;
+  programId?: string;
+  schoolId?: string;
+  offeringId?: string;
   weeks?: number;
-  accommodation?: AccommodationType;
-  guardMe?: boolean;
+  startDate?: string;
+  nationality?: string;
+  language?: string;
+  studentAge?: number;
+  travelDepartureDate?: string;
   guest?: {
     name?: string;
     email?: string;
     phone?: string;
   };
+  idempotencyKey?: string;
+  /** Legacy fields — ignored for pricing (no generic addon charges) */
+  accommodation?: string;
+  guardMe?: boolean;
 }
 
-function parseWeeks(value?: number): DurationWeeks | null {
-  if (value === 4 || value === 8 || value === 12) return value;
-  return null;
-}
-
+/**
+ * POST /api/checkout — delegates to the same authorized checkout service as /api/book.
+ * No second pricing engine.
+ */
 export async function POST(request: Request) {
-  if (!isStripeConfigured()) {
-    return NextResponse.json(
-      {
-        configured: false,
-        error:
-          "Stripe no está configurado. Define STRIPE_SECRET_KEY y NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.",
-      },
-      { status: 503 }
-    );
-  }
-
-  const stripe = getStripe();
-  if (!stripe) {
-    return NextResponse.json(
-      { configured: false, error: "STRIPE_SECRET_KEY ausente." },
-      { status: 503 }
-    );
-  }
-
   let body: CheckoutBody;
   try {
     body = (await request.json()) as CheckoutBody;
@@ -50,119 +46,164 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
   }
 
-  const school = body.schoolSlug ? getSchool(body.schoolSlug) : undefined;
-  const weeks = parseWeeks(body.weeks);
-  const accommodation: AccommodationType =
-    body.accommodation === "residence" ? "residence" : "homestay";
-  const guardMe = Boolean(body.guardMe);
   const name = body.guest?.name?.trim() ?? "";
   const email = body.guest?.email?.trim() ?? "";
   const phone = body.guest?.phone?.trim() ?? "";
+  const weeks =
+    typeof body.weeks === "number" && body.weeks > 0 && body.weeks <= 52
+      ? Math.floor(body.weeks)
+      : null;
 
-  if (!school || !weeks) {
+  if (!weeks || !body.startDate) {
     return NextResponse.json(
-      { error: "Escuela o duración inválida." },
+      { error: "Duración e inicio de curso requeridos." },
       { status: 400 }
     );
   }
 
-  if (
-    name.length < 2 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    phone.length < 7
-  ) {
+  if (body.studentAge == null || body.studentAge < 1) {
     return NextResponse.json(
-      { error: "Datos del huésped incompletos (nombre, email, teléfono)." },
+      { error: "Edad del estudiante requerida." },
       { status: 400 }
     );
   }
 
-  const pricing = calculatePricing({
-    weeklyPrice: school.weeklyPrice,
-    weeks,
-    accommodation,
-    guardMe,
-  });
-
-  const baseUrl = getAppBaseUrl();
-  const lineItems: {
-    quantity: number;
-    price_data: {
-      currency: "usd";
-      unit_amount: number;
-      product_data: { name: string; description?: string };
-    };
-  }[] = [
-    {
-      quantity: 1,
-      price_data: {
-        currency: "usd",
-        unit_amount: pricing.courseTotal * 100,
-        product_data: {
-          name: `${school.name} · ${weeks} semanas`,
-          description: `Curso de idioma en ${school.city}, ${school.country}`,
-        },
-      },
-    },
-    {
-      quantity: 1,
-      price_data: {
-        currency: "usd",
-        unit_amount: pricing.accommodationTotal * 100,
-        product_data: {
-          name:
-            accommodation === "homestay"
-              ? `Homestay · ${weeks} semanas`
-              : `Residencia · ${weeks} semanas`,
-        },
-      },
-    },
-  ];
-
-  if (pricing.insuranceTotal > 0) {
-    lineItems.push({
-      quantity: 1,
-      price_data: {
-        currency: "usd",
-        unit_amount: pricing.insuranceTotal * 100,
-        product_data: {
-          name: "Guard.me Global Coverage",
-          description: "Seguro médico y de viaje",
-        },
-      },
-    });
+  const nationalityIso2 = body.nationality
+    ? iso2FromUiNationality(body.nationality)
+    : null;
+  if (!nationalityIso2) {
+    return NextResponse.json(
+      { error: "Nacionalidad ISO requerida." },
+      { status: 400 }
+    );
   }
 
-  try {
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      customer_email: email,
-      line_items: lineItems,
-      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/checkout/cancel?school=${encodeURIComponent(school.slug)}`,
-      metadata: {
-        schoolSlug: school.slug,
-        weeks: String(weeks),
-        accommodation,
-        guardMe: guardMe ? "1" : "0",
-        guestName: name,
-        guestPhone: phone,
-        totalUsd: String(pricing.total),
+  if (body.accommodation && body.accommodation !== "none") {
+    return NextResponse.json(
+      {
+        error:
+          "Alojamiento requiere precio Edvisor verificado; no se usan tarifas genéricas locales.",
+        code: "addons_require_live_price",
       },
-      phone_number_collection: { enabled: true },
-    });
+      { status: 409 }
+    );
+  }
+  if (body.guardMe) {
+    return NextResponse.json(
+      {
+        error:
+          "Seguro requiere precio Edvisor verificado; no se usa tarifa plana local.",
+        code: "addons_require_live_price",
+      },
+      { status: 409 }
+    );
+  }
 
-    if (!session.url) {
-      return NextResponse.json(
-        { error: "Stripe no devolvió URL de Checkout." },
-        { status: 502 }
+  const { catalog } = await resolveEdvisorCatalog();
+  let program = body.programId
+    ? catalog.programs.find((p) => p.id === body.programId)
+    : undefined;
+
+  if (!program && body.schoolSlug) {
+    // Legacy: map slug → school name loosely; still require curation + live quote
+    const school = catalog.schools.find(
+      (s) =>
+        s.id.includes(body.schoolSlug!) ||
+        s.name.toLowerCase().replace(/\s+/g, "-").includes(body.schoolSlug!)
+    );
+    if (school) {
+      program = catalog.programs.find(
+        (p) => p.schoolId === school.id && p.complete
       );
     }
-
-    return NextResponse.json({ url: session.url, sessionId: session.id });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Error creando Checkout Session.";
-    return NextResponse.json({ error: message }, { status: 502 });
   }
+
+  if (!program?.complete) {
+    return NextResponse.json(
+      { error: "Programa no encontrado o incompleto en catálogo curado." },
+      { status: 400 }
+    );
+  }
+
+  const school = catalog.schools.find((s) => s.id === program!.schoolId);
+  if (!school?.complete) {
+    return NextResponse.json({ error: "Escuela incompleta." }, { status: 400 });
+  }
+
+  const curation = await getCurationState();
+  if (
+    !isSchoolEnabled(curation, school.id) ||
+    !isProgramEnabled(curation, program.id)
+  ) {
+    return NextResponse.json(
+      { error: "Producto no habilitado por administración." },
+      { status: 403 }
+    );
+  }
+
+  const offeringId =
+    body.offeringId ||
+    (program.id.startsWith("edv-offering-")
+      ? program.id.replace("edv-offering-", "")
+      : program.id);
+
+  const idempotencyKey =
+    body.idempotencyKey?.trim() ||
+    createHash("sha256")
+      .update(
+        [
+          email,
+          program.id,
+          body.startDate,
+          String(weeks),
+          nationalityIso2,
+          String(body.studentAge),
+        ].join("|")
+      )
+      .digest("hex")
+      .slice(0, 32);
+
+  const result = await startStripeCheckout({
+    contact: { name, email, phone },
+    idempotencyKey,
+    cancelPath: body.schoolSlug
+      ? `/checkout/cancel?school=${encodeURIComponent(body.schoolSlug)}`
+      : "/checkout/cancel",
+    quoteRequest: {
+      nationalityIso2,
+      studentAge: body.studentAge,
+      languageCode: body.language || "",
+      destinationCountryCode: "",
+      schoolId: body.schoolId || school.edvisorProviderId || school.id,
+      offeringId,
+      programId: program.id,
+      startDate: body.startDate,
+      weeks,
+      currency: program.currency || "USD",
+      accommodationOfferingId: "none",
+      insuranceOfferingId: "none",
+      airportOfferingId: "none",
+      travelDepartureDate: body.travelDepartureDate || body.startDate,
+      requireLive: true,
+    },
+  });
+
+  if (!result.ok) {
+    return NextResponse.json(
+      {
+        configured: result.code !== "stripe_not_configured",
+        error: result.error,
+        code: result.code,
+      },
+      { status: result.status }
+    );
+  }
+
+  return NextResponse.json({
+    url: result.checkoutUrl,
+    sessionId: result.sessionId,
+    bookingId: result.booking.bookingId,
+    quoteId: result.booking.quoteId,
+    charged: false,
+  });
 }

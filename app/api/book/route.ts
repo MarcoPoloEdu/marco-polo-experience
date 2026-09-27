@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  ACCOMMODATIONS,
-  AIRPORT_OPTIONS,
-  INSURANCE_OPTIONS,
-  LANGUAGES,
-  NATIONALITIES,
-  getDestination,
-  getProgram,
-} from "@/lib/data/mock-catalog";
-import {
-  calculateBookingPricing,
-  formatDateEs,
-} from "@/lib/booking/pricing";
-import { buildBookingEmails, deliverEmails } from "@/lib/email";
-import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { createHash } from "crypto";
+import { startStripeCheckout } from "@/lib/bookings/checkout";
+import { resolveEdvisorCatalog } from "@/lib/edvisor/resolve-catalog";
+import { getCurationState, isProgramEnabled, isSchoolEnabled } from "@/lib/edvisor/curation";
+import { iso2FromUiNationality } from "@/lib/nationality";
 
 export const runtime = "nodejs";
 
@@ -27,18 +17,22 @@ interface BookBody {
   accommodationId?: string;
   insuranceId?: string;
   airportId?: string;
+  studentAge?: number;
+  travelDepartureDate?: string;
   contact?: {
     name?: string;
     email?: string;
     phone?: string;
   };
-  card?: {
-    brand?: string;
-    last4?: string;
-    mockPaymentMethodId?: string;
-  };
+  /** @deprecated Mock card path removed — Stripe Checkout only */
+  card?: unknown;
+  idempotencyKey?: string;
 }
 
+/**
+ * POST /api/book — creates pending booking + Stripe Checkout Session.
+ * Never marks payment successful. Never mock-charges.
+ */
 export async function POST(request: Request) {
   let body: BookBody;
   try {
@@ -50,7 +44,10 @@ export async function POST(request: Request) {
   const name = body.contact?.name?.trim() ?? "";
   const email = body.contact?.email?.trim() ?? "";
   const phone = body.contact?.phone?.trim() ?? "";
-  const weeks = body.weeks === 8 || body.weeks === 12 ? body.weeks : body.weeks === 4 ? 4 : null;
+  const weeks =
+    typeof body.weeks === "number" && body.weeks > 0 && body.weeks <= 52
+      ? Math.floor(body.weeks)
+      : null;
 
   if (
     name.length < 2 ||
@@ -59,131 +56,138 @@ export async function POST(request: Request) {
     !body.programId ||
     !body.destinationId ||
     !body.startDate ||
-    !weeks ||
-    !body.card?.mockPaymentMethodId
+    !weeks
   ) {
     return NextResponse.json(
-      { error: "Faltan datos de reserva, tarjeta o contacto." },
+      { error: "Faltan datos de reserva o contacto." },
       { status: 400 }
     );
   }
 
-  const program = getProgram(body.programId);
-  const destination = getDestination(body.destinationId);
-  if (!program || !destination) {
-    return NextResponse.json({ error: "Programa o destino inválido." }, { status: 400 });
+  if (body.studentAge == null || body.studentAge < 1) {
+    return NextResponse.json(
+      {
+        error:
+          "Edad del estudiante requerida. No se infiere automáticamente.",
+      },
+      { status: 400 }
+    );
   }
 
-  const pricing = calculateBookingPricing({
-    programId: program.id,
-    weeks,
-    accommodationId: body.accommodationId ?? "homestay",
-    insuranceId: body.insuranceId ?? "guardme",
-    airportId: body.airportId ?? "none",
-  });
-
-  const bookingId = `MPE-${Date.now().toString(36).toUpperCase()}`;
-  let paymentMode: "stripe" | "mock" = "mock";
-  let charged = true;
-  let stripePaymentIntentId: string | undefined;
-
-  if (isStripeConfigured()) {
-    const stripe = getStripe();
-    if (stripe) {
-      try {
-        // Partner prototype: create & confirm a PaymentIntent in test mode using
-        // Stripe's test payment method token when available. Otherwise mark mock.
-        const intent = await stripe.paymentIntents.create({
-          amount: pricing.total * 100,
-          currency: "usd",
-          automatic_payment_methods: { enabled: true, allow_redirects: "never" },
-          receipt_email: email,
-          metadata: {
-            bookingId,
-            programId: program.id,
-            destinationId: destination.id,
-            guestName: name,
-            guestPhone: phone,
-            mockPm: body.card.mockPaymentMethodId,
-            last4: body.card.last4 ?? "",
-          },
-          description: `Marco Polo Experience · ${program.title}`,
-        });
-        stripePaymentIntentId = intent.id;
-        paymentMode = "stripe";
-        // Without a real confirmed PM from Elements, intent stays requires_payment_method.
-        // For demo continuity we still proceed and note status.
-        charged = intent.status === "succeeded";
-        if (!charged) {
-          console.info(
-            "[stripe] PaymentIntent created (awaiting Elements confirm in future):",
-            intent.id,
-            intent.status
-          );
-          // Prototype policy: treat as authorized demo charge when keys exist but PM not attached
-          charged = true;
-          paymentMode = "stripe";
-        }
-      } catch (err) {
-        console.error("[stripe] book failed, falling back to mock", err);
-        paymentMode = "mock";
-        charged = true;
-      }
-    }
+  const nationalityIso2 = body.nationality
+    ? iso2FromUiNationality(body.nationality)
+    : null;
+  if (!nationalityIso2) {
+    return NextResponse.json(
+      { error: "Nacionalidad inválida o ausente (ISO requerido)." },
+      { status: 400 }
+    );
   }
 
-  const endDate = (() => {
-    const d = new Date(`${body.startDate}T12:00:00`);
-    d.setDate(d.getDate() + weeks * 7);
-    return d.toISOString().slice(0, 10);
-  })();
+  const { catalog } = await resolveEdvisorCatalog();
+  const program = catalog.programs.find((p) => p.id === body.programId);
+  if (!program || !program.complete) {
+    return NextResponse.json(
+      { error: "Programa inválido o incompleto." },
+      { status: 400 }
+    );
+  }
 
-  const acc = ACCOMMODATIONS.find((a) => a.id === (body.accommodationId ?? "homestay"));
-  const ins = INSURANCE_OPTIONS.find((i) => i.id === (body.insuranceId ?? "guardme"));
-  const air = AIRPORT_OPTIONS.find((a) => a.id === (body.airportId ?? "none"));
-  const extrasSummary = [
-    acc?.label,
-    ins && ins.flatUsd > 0 ? ins.label : null,
-    air && air.flatUsd > 0 ? air.label : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const school = catalog.schools.find((s) => s.id === program.schoolId);
+  if (!school?.complete) {
+    return NextResponse.json(
+      { error: "Escuela inválida o incompleta." },
+      { status: 400 }
+    );
+  }
 
-  const nationalityLabel =
-    NATIONALITIES.find((n) => n.code === body.nationality)?.label ?? body.nationality ?? "";
-  const languageLabel =
-    LANGUAGES.find((l) => l.code === body.language)?.label ?? body.language ?? "";
+  const curation = await getCurationState();
+  if (!isSchoolEnabled(curation, school.id) || !isProgramEnabled(curation, program.id)) {
+    return NextResponse.json(
+      {
+        error:
+          "Producto no habilitado por administración. No se puede iniciar el pago.",
+      },
+      { status: 403 }
+    );
+  }
 
-  const emails = buildBookingEmails({
-    bookingId,
-    customerName: name,
-    customerEmail: email,
-    customerPhone: phone,
-    nationalityLabel,
-    languageLabel,
-    destinationLabel: `${destination.city}, ${destination.country}`,
-    programTitle: program.title,
-    schoolName: program.schoolName,
-    schoolEmail: program.schoolEmail,
-    startDate: formatDateEs(body.startDate),
-    endDate: formatDateEs(endDate),
-    weeks,
-    totalUsd: pricing.total,
-    extrasSummary: extrasSummary || "Sin extras",
-    charged,
-    paymentMode,
+  // Add-ons other than "none" require verified Edvisor prices — block early
+  const acc = body.accommodationId && body.accommodationId !== "none";
+  const ins = body.insuranceId && body.insuranceId !== "none";
+  const air = body.airportId && body.airportId !== "none";
+  if (acc || ins || air) {
+    return NextResponse.json(
+      {
+        error:
+          "Alojamiento, seguro y recepción requieren precio Edvisor verificado. En esta versión solo se cobra el curso cotizado exactamente.",
+        code: "addons_require_live_price",
+      },
+      { status: 409 }
+    );
+  }
+
+  const offeringId =
+    program.id.startsWith("edv-offering-")
+      ? program.id.replace("edv-offering-", "")
+      : program.id;
+
+  const idempotencyKey =
+    body.idempotencyKey?.trim() ||
+    createHash("sha256")
+      .update(
+        [
+          email,
+          program.id,
+          body.startDate,
+          String(weeks),
+          nationalityIso2,
+          String(body.studentAge),
+        ].join("|")
+      )
+      .digest("hex")
+      .slice(0, 32);
+
+  const result = await startStripeCheckout({
+    contact: { name, email, phone },
+    idempotencyKey,
+    cancelPath: "/checkout/cancel",
+    quoteRequest: {
+      nationalityIso2,
+      studentAge: body.studentAge,
+      languageCode: body.language || "",
+      destinationCountryCode: "",
+      schoolId: school.edvisorProviderId || school.id,
+      offeringId,
+      programId: program.id,
+      startDate: body.startDate,
+      weeks,
+      currency: program.currency || "USD",
+      accommodationOfferingId: body.accommodationId ?? "none",
+      insuranceOfferingId: body.insuranceId ?? "none",
+      airportOfferingId: body.airportId ?? "none",
+      travelDepartureDate: body.travelDepartureDate || body.startDate,
+      requireLive: true,
+    },
   });
 
-  const delivery = await deliverEmails(emails);
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: result.error, code: result.code, charged: false },
+      { status: result.status }
+    );
+  }
 
   return NextResponse.json({
     ok: true,
-    bookingId,
-    charged,
-    paymentMode,
-    stripePaymentIntentId,
-    total: pricing.total,
-    emails,
-    emailDelivery: delivery,
+    bookingId: result.booking.bookingId,
+    quoteId: result.booking.quoteId,
+    checkoutUrl: result.checkoutUrl,
+    sessionId: result.sessionId,
+    paymentStatus: result.booking.paymentStatus,
+    charged: false,
+    paymentMode: "stripe_checkout",
+    total: result.booking.quoteSnapshot.total,
+    currency: result.booking.quoteSnapshot.currency,
   });
 }

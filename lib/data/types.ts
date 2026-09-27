@@ -12,7 +12,12 @@ export type NationalityCode =
   | "CRI"
   | "PAN";
 
-export type LanguageCode = "english" | "german" | "french" | "spanish" | "italian";
+export type LanguageCode =
+  | "english"
+  | "german"
+  | "french"
+  | "italian"
+  | "portuguese";
 
 export type ProgramKind = "general" | "exam_prep" | "plus30";
 

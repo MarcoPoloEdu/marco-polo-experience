@@ -24,11 +24,24 @@ export interface ExperienceCatalog {
 }
 
 function mapDestination(d: EdvisorDestination): Destination {
+  const languageCodes: Destination["languageCodes"] = [];
+  for (const c of d.languageCodes) {
+    if (
+      c === "english" ||
+      c === "german" ||
+      c === "french" ||
+      c === "italian"
+    ) {
+      languageCodes.push(c);
+    }
+    // spanish dropped from V2 study languages; portuguese added when present in future exports
+  }
+
   return {
     id: d.id,
     country: d.country,
     city: d.city,
-    languageCodes: d.languageCodes,
+    languageCodes,
     imageUrl: d.imageUrl,
     heroUrl: d.heroUrl,
     tagline: d.tagline,
@@ -77,12 +90,13 @@ export function loadExperienceCatalogSync(
       .filter((p) => {
         const school = getEdvisorSchool(p.schoolId, catalog);
         if (!school?.complete) return false;
-        const schoolEnabled = cur.schools[school.id] ?? true;
+        // V2: missing curation key = DISABLED (never ?? true)
+        const schoolEnabled = cur.schools[school.id] === true;
         return schoolEnabled;
       })
       .map((p) => {
         const school = getEdvisorSchool(p.schoolId, catalog);
-        const enabled = cur.programs[p.id] ?? true;
+        const enabled = cur.programs[p.id] === true;
         return mapProgram(p, school, enabled);
       });
 

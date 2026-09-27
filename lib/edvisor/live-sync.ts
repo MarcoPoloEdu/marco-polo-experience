@@ -11,9 +11,11 @@
 
 import "server-only";
 
-import { promises as fs } from "fs";
-import path from "path";
 import { edvisorGraphql, isEdvisorApiConfigured } from "@/lib/edvisor/api";
+import {
+  activateCatalogVersion,
+  readActiveCatalog,
+} from "@/lib/edvisor/catalog-store";
 import type {
   EdvisorCatalog,
   EdvisorDestination,
@@ -23,7 +25,8 @@ import type {
   EdvisorSchool,
 } from "@marco-polo/experience-edvisor";
 
-const LIVE_CATALOG_PATH = path.join(process.cwd(), "data", "edvisor-live-catalog.json");
+// Diagnostics label — real persistence is Firestore catalogVersions
+const LIVE_CATALOG_PATH = "firestore:catalogVersions/active";
 
 type ConnectedSchool = {
   schoolId: number;
@@ -152,17 +155,11 @@ function liveCatalogPath() {
 }
 
 export async function readLiveEdvisorCatalog(): Promise<EdvisorCatalog | null> {
-  try {
-    const raw = await fs.readFile(liveCatalogPath(), "utf8");
-    return JSON.parse(raw) as EdvisorCatalog;
-  } catch {
-    return null;
-  }
+  return readActiveCatalog();
 }
 
 export async function writeLiveEdvisorCatalog(catalog: EdvisorCatalog): Promise<void> {
-  await fs.mkdir(path.dirname(liveCatalogPath()), { recursive: true });
-  await fs.writeFile(liveCatalogPath(), JSON.stringify(catalog, null, 2), "utf8");
+  await activateCatalogVersion(catalog);
 }
 
 function categoryLooksLikeLanguage(school: ConnectedSchool): boolean {
@@ -433,8 +430,9 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       for (const off of campusOfferings) {
         const title =
           off.offeringCourse?.name || off.name || `Course #${off.offeringId}`;
-        const weekly = weeklyUsdFromPrices(off.offeringCourse?.prices ?? []) ?? 0;
-        const complete = weekly > 0;
+        const weekly = weeklyUsdFromPrices(off.offeringCourse?.prices ?? []);
+        // Missing weekly price → incomplete (not inventable). Zero is invalid for sale.
+        const complete = weekly != null && weekly > 0;
         programs.push({
           id: `edv-offering-${off.offeringId}`,
           destinationId: destId,
@@ -442,15 +440,19 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
           kind: inferProgramKind(title),
           title,
           summary: `${campus.name} · Edvisor offering ${off.offeringId}`,
-          lessonsPerWeek: 20,
-          weeklyPriceUsd: weekly,
-          highlights: complete ? ["Precio Edvisor", "Curso conectado"] : ["Sin precio semanal aún"],
+          // lessonsPerWeek unknown until schema provides it — 0 means unset, not invented 20
+          lessonsPerWeek: 0,
+          weeklyPriceUsd: weekly ?? 0,
+          highlights: complete
+            ? ["Precio Edvisor (informativo de catálogo)", "Curso conectado"]
+            : ["Sin precio semanal verificable"],
           imageUrl:
             "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=80",
           complete,
           currency: "USD",
-          minWeeks: 4,
-          maxWeeks: 24,
+          // Durations unknown — 0 means unset; admin/catalog must not invent 4/8/12
+          minWeeks: 0,
+          maxWeeks: 0,
         });
       }
     }

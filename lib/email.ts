@@ -77,7 +77,7 @@ export function buildBookingEmails(ctx: BookingEmailContext): EmailPayload[] {
     },
     {
       id: "interno",
-      to: process.env.MPE_INTERNAL_EMAIL ?? "ops@marcopoloexperience.example",
+      to: process.env.MPE_INTERNAL_EMAIL ?? "procesos@marcopoloeducation.com",
       subject: `[Interno] Paid booking ${ctx.bookingId}`,
       preview: `${ctx.destinationLabel} · ${money} · ${ctx.customerEmail}`,
       body: [

@@ -2,81 +2,50 @@
 
 Partner ecommerce (LatAm-first, Spanish UI) for short language stays abroad. Sister of [Marco Polo Education](https://www.marcopoloeducation.com).
 
-**Cotizador prices/programs/schools come from the Edvisor portable export** vendored at `vendor/marco-polo-experience-edvisor`. Experience only enables/disables complete Edvisor products (admin curation). Agency extras (alojamiento, seguro, aeropuerto) stay local.
+**Course prices come from Edvisor** (exact quote service). Experience only enables/disables complete products via admin curation. Stripe Checkout is the only charge path — there is **no mock success** without a verified webhook.
 
-## Locked purchase flow
+## Purchase flow (V2)
 
-1. País (nacionalidad) + idioma  
-2. Países destino sugeridos  
-3. Fechas (inicio + semanas + calculadora de fin)  
-4. Programa (general / prep exámenes / +30)  
-5. Extras + precio sticky (alojamiento, seguro, aeropuerto)  
-6. Tarjeta (validar método — aún no cobra)  
-7. Contacto → **cobra al enviar**  
-8. Confirmación + 3 emails (cliente, escuela, MPE interno)
+1. País (nacionalidad) + idioma (EN / IT / FR / DE / PT)
+2. Destino → fechas → programa
+3. Extras informativos (cobro de extras requiere precio Edvisor verificado)
+4. Resumen + edad del estudiante
+5. Contacto → **Stripe Checkout**
+6. Webhook firmado marca pagado → emails
 
 ## Stack
 
-- Next.js App Router, Tailwind, shadcn/ui  
-- Edvisor catalog: `vendor/marco-polo-experience-edvisor` → `lib/edvisor/client.ts` → cotizador  
-- Admin: `/admin` — Google Sign-In (Firebase Auth), allowlist `admin@marcopoloeducation.com`  
-- Stripe / Resend optional (mock when empty)
-
-## Edvisor portable export
-
-Upstream (private):  
-`https://github.com/MarcoPoloEdu/marcopoloeducation/tree/cursor/mpe-edvisor-portable-5222/exports/marco-polo-experience-edvisor`
-
-Until GitHub access is available, this repo vendors a seed shaped like that export. Replace `vendor/marco-polo-experience-edvisor/data/catalog.json` with the upstream package when you can clone it (set `GITHUB_TOKEN` if needed). Do not invent course prices in a separate CMS.
-
-## Env
-
-Copy `.env.example` → `.env.local`.
-
-```bash
-# --- Firebase client (required for /admin Google login) ---
-# Project: mpexperience (Marco Polo Experience)
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=mpexperience.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=mpexperience
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=mpexperience.firebasestorage.app
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=604236537968
-NEXT_PUBLIC_FIREBASE_APP_ID=
-
-# --- Firebase Admin (server token verify + Firestore curation) ---
-FIREBASE_PROJECT_ID=mpexperience
-FIREBASE_CLIENT_EMAIL=
-FIREBASE_PRIVATE_KEY=
-
-# --- Stripe / Resend (optional) ---
-STRIPE_SECRET_KEY=
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
-STRIPE_WEBHOOK_SECRET=
-RESEND_API_KEY=
-RESEND_FROM_EMAIL=Marco Polo Experience <onboarding@resend.dev>
-MPE_INTERNAL_EMAIL=ops@marcopoloeducation.com
-NEXT_PUBLIC_APP_URL=http://127.0.0.1:4317
-```
-
-Without Firebase env, `/admin` shows a setup screen; the public cotizador still runs on the Edvisor vendor catalog. Without Stripe/Resend, booking uses mock charge + email payloads.
-
-Demo card: `4242 4242 4242 4242`, any future MM/AA, any 3-digit CVC.
-
-Authorized domains for Google Sign-In must include `localhost` (no protocol/port) and your deploy host — see Firebase Console → Authentication → Settings, or `firebase.json` auth block + `npx -y firebase-tools@latest deploy --only auth`.
+- Next.js App Router, Tailwind, shadcn/ui
+- Dual Edvisor GraphQL clients (`api-v2` + `federation-gateway`) — no blind host fallback
+- Exact quote: `lib/quotes/exact-quote.ts` + `POST /api/quotes`
+- Admin: `/admin` — Google Sign-In, allowlist `admin@marcopoloeducation.com`
+- Firestore for curation, catalog versions, bookings, quotes, stripe events
+- Stripe Checkout + signed webhooks (secret required)
+- Resend for transactional email (`procesos@marcopoloeducation.com`)
 
 ## Run
 
 ```bash
+cp .env.example .env.local   # fill secrets
 npm install
-npm run dev
+npm run dev                  # http://127.0.0.1:4317
+npm test
+npm run typecheck
 ```
 
-Open [http://127.0.0.1:4317](http://127.0.0.1:4317) · Admin [http://127.0.0.1:4317/admin](http://127.0.0.1:4317/admin)
+Admin: http://127.0.0.1:4317/admin
 
-## Firebase CLI
+Without Stripe / Edvisor keys, browsing works; **checkout is blocked** (503/409) — never simulated as paid.
 
-```bash
-npx -y firebase-tools@latest login
-npx -y firebase-tools@latest use <PROJECT_ID>
-npx -y firebase-tools@latest deploy --only auth,firestore:rules
-```
+## Docs
+
+- `docs/experience-implementation-plan.md` — inventory + stages
+- `docs/vercel-prep.md` — env, Firestore, cron, launch checklist
+
+## Safety invariants
+
+- Webhook without `STRIPE_WEBHOOK_SECRET` → 503
+- Invalid/missing signature → 400
+- Success URL does not mark paid
+- Curation default = disabled (`=== true` required)
+- No JSON-as-prod persistence (opt-in `ALLOW_LOCAL_PERSISTENCE=1` only outside production)

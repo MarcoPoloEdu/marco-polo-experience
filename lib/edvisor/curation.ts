@@ -1,13 +1,14 @@
 /**
- * Experience curation layer — enable/disable complete Edvisor schools & programs.
- * Prefer Firestore when Firebase Admin is configured; otherwise local JSON file.
- * Server-only.
+ * Experience curation — enable/disable complete Edvisor schools & programs.
+ * Firestore is the production store. Local JSON only with ALLOW_LOCAL_PERSISTENCE=1
+ * outside production. Defaults: products are DISABLED until explicitly enabled.
  */
 
 import "server-only";
 
 import { promises as fs } from "fs";
 import path from "path";
+import { allowLocalPersistence, firestoreConfigured } from "@/lib/persistence";
 
 export interface CurationState {
   schools: Record<string, boolean>;
@@ -18,11 +19,15 @@ export interface CurationState {
 
 const EMPTY: CurationState = { schools: {}, programs: {} };
 
+/** Commercial decision: ILAC stays disabled (do not confuse with ILSC). */
+export const FORCE_DISABLED_SCHOOL_NAME_PATTERNS = [/\bilac\b/i];
+
 function localCurationPath() {
   return path.join(process.cwd(), "data", "curation.json");
 }
 
 async function readLocalCuration(): Promise<CurationState> {
+  if (!allowLocalPersistence()) return { ...EMPTY };
   try {
     const raw = await fs.readFile(localCurationPath(), "utf8");
     const parsed = JSON.parse(raw) as CurationState;
@@ -38,16 +43,14 @@ async function readLocalCuration(): Promise<CurationState> {
 }
 
 async function writeLocalCuration(state: CurationState): Promise<void> {
+  if (!allowLocalPersistence()) {
+    throw new Error(
+      "Local curation persistence disabled. Configure Firebase Admin or set ALLOW_LOCAL_PERSISTENCE=1 (non-production only)."
+    );
+  }
   const dir = path.dirname(localCurationPath());
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(localCurationPath(), JSON.stringify(state, null, 2), "utf8");
-}
-
-function firestoreConfigured(): boolean {
-  return Boolean(
-    process.env.FIREBASE_PROJECT_ID &&
-      (process.env.FIREBASE_CLIENT_EMAIL || process.env.GOOGLE_APPLICATION_CREDENTIALS)
-  );
 }
 
 export async function getCurationState(): Promise<CurationState> {
@@ -55,19 +58,25 @@ export async function getCurationState(): Promise<CurationState> {
     try {
       const { getAdminDb } = await import("@/lib/firebase/admin");
       const db = getAdminDb();
-      if (!db) return readLocalCuration();
-      const snap = await db.collection("curation").doc("experience").get();
-      if (!snap.exists) return readLocalCuration();
-      const data = snap.data() as CurationState;
-      return {
-        schools: data.schools ?? {},
-        programs: data.programs ?? {},
-        updatedAt: data.updatedAt,
-        updatedBy: data.updatedBy,
-      };
+      if (db) {
+        const snap = await db.collection("curation").doc("experience").get();
+        if (snap.exists) {
+          const data = snap.data() as CurationState;
+          return {
+            schools: data.schools ?? {},
+            programs: data.programs ?? {},
+            updatedAt: data.updatedAt,
+            updatedBy: data.updatedBy,
+          };
+        }
+        // Empty Firestore doc → defaults (all disabled), do not fall back to vendible JSON
+        return { ...EMPTY };
+      }
     } catch (err) {
-      console.warn("[curation] Firestore read failed, using local file", err);
-      return readLocalCuration();
+      console.warn("[curation] Firestore read failed", err);
+      if (!allowLocalPersistence()) {
+        return { ...EMPTY };
+      }
     }
   }
   return readLocalCuration();
@@ -93,7 +102,12 @@ export async function setCurationState(
         return state;
       }
     } catch (err) {
-      console.warn("[curation] Firestore write failed, writing local file", err);
+      console.warn("[curation] Firestore write failed", err);
+      if (!allowLocalPersistence()) {
+        throw new Error(
+          "No se pudo persistir curación en Firestore y la escritura local está deshabilitada."
+        );
+      }
     }
   }
 
@@ -106,7 +120,19 @@ export async function patchCurationToggle(input: {
   id: string;
   enabled: boolean;
   actorEmail: string;
+  schoolName?: string;
 }): Promise<CurationState> {
+  if (
+    input.enabled &&
+    input.kind === "school" &&
+    input.schoolName &&
+    FORCE_DISABLED_SCHOOL_NAME_PATTERNS.some((re) => re.test(input.schoolName!))
+  ) {
+    throw new Error(
+      "ILAC permanece deshabilitada por decisión comercial; no se puede activar."
+    );
+  }
+
   const current = await getCurationState();
   if (input.kind === "school") {
     current.schools[input.id] = input.enabled;
@@ -114,4 +140,19 @@ export async function patchCurationToggle(input: {
     current.programs[input.id] = input.enabled;
   }
   return setCurationState(current, input.actorEmail);
+}
+
+/** Effective enablement — missing key means DISABLED (not enabled). */
+export function isSchoolEnabled(
+  curation: CurationState,
+  schoolId: string
+): boolean {
+  return curation.schools[schoolId] === true;
+}
+
+export function isProgramEnabled(
+  curation: CurationState,
+  programId: string
+): boolean {
+  return curation.programs[programId] === true;
 }
