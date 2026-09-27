@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -52,19 +51,6 @@ import {
 } from "@/lib/booking/pricing";
 import { cn } from "@/lib/utils";
 
-const PASSPORT_SLUG: Record<NationalityCode, string> = {
-  COL: "colombia",
-  MEX: "mexico",
-  PER: "peru",
-  CHL: "chile",
-  ARG: "argentina",
-  BRA: "brasil",
-  ECU: "ecuador",
-  URY: "uruguay",
-  CRI: "costa-rica",
-  PAN: "panama",
-};
-
 const LANGUAGE_CHIPS: LanguageCode[] = [
   "english",
   "french",
@@ -110,7 +96,6 @@ export function BookingWizard({
   initialProgramId?: string;
   startAtStep?: number;
 } = {}) {
-  const router = useRouter();
   const [step, setStep] = useState(startAtStep && startAtStep >= 1 && startAtStep <= 9 ? startAtStep : 1);
   const [nationality, setNationality] = useState<NationalityCode | "">(
     initialNationality ?? ""
@@ -227,9 +212,13 @@ export function BookingWizard({
 
   function submitSearch() {
     if (!nationality || !language) return;
-    const passport = PASSPORT_SLUG[nationality];
-    const params = new URLSearchParams({ passport, language });
-    router.push(`/courses?${params.toString()}`);
+    // Stay in the wizard: país → ciudad (no prices). /courses is a secondary browse.
+    setDestinationCountry("");
+    setDestinationId("");
+    setProgramId("");
+    setError(null);
+    setPriceOpen(false);
+    setStep(2);
   }
 
   function goNext() {
@@ -474,11 +463,11 @@ export function BookingWizard({
                     "h-12 min-h-12 w-full gap-2 border-0 text-base text-ink gradient-cta disabled:opacity-40"
                   )}
                 >
-                  Ver cursos
+                  Elegir destino
                   <ArrowRight className="size-4" />
                 </button>
                 <p className="text-center text-[11px] leading-snug text-white/50 sm:text-xs">
-                  Asesoría disponible · Escuelas verificadas · Reserva segura
+                  País y ciudad primero · Precios en la cotización · Reserva segura
                 </p>
               </div>
             </div>

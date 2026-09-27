@@ -95,40 +95,57 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
         </div>
 
         {destinations.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="font-heading text-lg font-semibold">Destinos</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {destinations.map((d) => (
-                <article
-                  key={d.id}
-                  className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm"
-                >
-                  <div className="relative aspect-[16/10]">
-                    <Image
-                      src={d.imageUrl}
-                      alt={d.city}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-ink/75 to-transparent" />
-                    <div className="absolute inset-x-0 bottom-0 p-3 text-white">
-                      <p className="text-[10px] font-semibold tracking-wide text-mint uppercase">
-                        {d.country}
-                      </p>
-                      <p className="font-heading text-xl font-semibold">{d.city}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1 p-3.5">
-                    <p className="text-sm text-muted-foreground">{d.tagline}</p>
-                    <p className="text-sm font-semibold">
-                      Desde {formatUsd(d.fromWeeklyUsd)}
-                      <span className="font-normal text-muted-foreground"> / semana</span>
-                    </p>
-                  </div>
-                </article>
-              ))}
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="font-heading text-lg font-semibold">Destinos</h2>
+              <p className="text-sm text-muted-foreground">
+                País → ciudad. Sin precios aquí; la cotización exacta viene después.
+              </p>
             </div>
+            {Array.from(
+              destinations.reduce((map, d) => {
+                const list = map.get(d.country) ?? [];
+                list.push(d);
+                map.set(d.country, list);
+                return map;
+              }, new Map<string, typeof destinations>())
+            ).map(([country, cities]) => (
+              <div key={country} className="space-y-2">
+                <h3 className="text-xs font-semibold tracking-[0.14em] text-indigo uppercase">
+                  {country}
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {cities.map((d) => (
+                    <Link
+                      key={d.id}
+                      href={`/?book=1&passport=${passportSlug}&language=${language}&destination=${d.id}`}
+                      className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm transition hover:border-indigo/40"
+                    >
+                      <div className="relative aspect-[16/10]">
+                        <Image
+                          src={d.imageUrl}
+                          alt={d.city}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-ink/75 to-transparent" />
+                        <div className="absolute inset-x-0 bottom-0 p-3 text-white">
+                          <p className="text-[10px] font-semibold tracking-wide text-mint uppercase">
+                            {d.country}
+                          </p>
+                          <p className="font-heading text-xl font-semibold">{d.city}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1 p-3.5">
+                        <p className="text-sm text-muted-foreground">{d.tagline}</p>
+                        <p className="text-xs font-medium text-indigo">Continuar cotización →</p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
         )}
 
