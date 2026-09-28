@@ -176,14 +176,15 @@ describe("initial curation set", () => {
     expect(matchInitialCampus(sampleCatalog.schools[4]!, sampleCatalog)).toBeNull();
   });
 
-  it("enables priced programs under enabled schools even when incomplete", () => {
+  it("enables ALL programs under enabled schools (no weeklyPrice gate)", () => {
     const result = buildInitialCuration(sampleCatalog, "admin@marcopoloeducation.com");
     expect(result.curation.schools["edv-school-54"]).toBe(true);
     expect(result.curation.schools["edv-school-gw"]).toBe(true);
     expect(result.curation.schools["edv-school-junior"]).toBeUndefined();
     expect(result.curation.programs["p1"]).toBe(true);
-    expect(result.curation.programs["p-no-price"]).toBeUndefined();
+    expect(result.curation.programs["p-no-price"]).toBe(true);
     expect(result.curation.programs["p-junior"]).toBeUndefined();
-    expect(result.programsEnabled).toBeGreaterThan(0);
+    expect(result.curation.destinations?.["edv-ca-vancouver"]).toBe(true);
+    expect(result.programsEnabled).toBe(2);
   });
 });

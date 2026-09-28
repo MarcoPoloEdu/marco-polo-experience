@@ -137,8 +137,8 @@ export type InitialCurationApplyResult = {
 
 /**
  * Build curation that enables ONLY matched initial campuses (complete schools)
- * and ALL programs under those schools (complete not required — demo/browse).
- * All other keys omitted (= off).
+ * and ALL programs under those schools — no weeklyPriceUsd / complete gate
+ * (demo/browse; charge stays live-quote). All other keys omitted (= off).
  */
 export function buildInitialCuration(
   catalog: EdvisorCatalog,
@@ -171,10 +171,9 @@ export function buildInitialCuration(
 
   let programsEnabled = 0;
   for (const program of catalog.programs) {
-    // Enable priced programs under enabled schools — do not require program.complete
-    // (Sibling bc-833ca94f may remove weeklyPrice gate; leave gate until their PR lands.)
+    // Enable ALL programs under enabled schools — no weeklyPrice/complete gate.
+    // Charge amounts stay live-quote only; synced weeklyPrice is browse hint.
     if (schools[program.schoolId] !== true) continue;
-    if (!(program.weeklyPriceUsd > 0)) continue;
     programs[program.id] = true;
     programsEnabled += 1;
   }
