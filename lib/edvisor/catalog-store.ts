@@ -61,12 +61,14 @@ export async function activateCatalogVersion(
 ): Promise<{ versionId: string }> {
   const versionId = `cat_${catalog.meta.version}_${Date.now().toString(36)}`;
   const now = new Date().toISOString();
+  // Firestore rejects `undefined` field values — strip via JSON round-trip.
+  const catalogClean = JSON.parse(JSON.stringify(catalog)) as EdvisorCatalog;
   const record: CatalogVersionRecord = {
     versionId,
     status: "active",
     createdAt: now,
     activatedAt: now,
-    catalog,
+    catalog: catalogClean,
   };
 
   if (firestoreConfigured()) {

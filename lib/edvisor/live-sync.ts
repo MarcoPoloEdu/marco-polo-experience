@@ -420,16 +420,16 @@ function weeklyUsdFromPrices(prices: OfferingPrice[] | null | undefined): number
   return Math.round(Math.min(...candidates));
 }
 
-function hintUsdFromPrices(prices: OfferingPrice[] | null | undefined): number | undefined {
+function hintUsdFromPrices(prices: OfferingPrice[] | null | undefined): number | null {
   const weekly = weeklyUsdFromPrices(prices);
   if (weekly != null) return weekly;
-  if (!prices?.length) return undefined;
+  if (!prices?.length) return null;
   for (const p of prices) {
     if (p.durationTypeId === EDVISOR_DURATION_TERM) continue;
     const usd = p.bestPromotionalPriceUsd ?? p.originalPriceUsd;
     if (usd != null && usd > 0) return Math.round(usd);
   }
-  return undefined;
+  return null;
 }
 
 function resolveCity(campus: ConnectedSchool, countryName: string): string {
@@ -779,10 +779,10 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
           ]
             .filter(Boolean)
             .join(" · "),
-          offeringTypeCode: typeCode,
+          ...(typeCode ? { offeringTypeCode: typeCode } : {}),
           edvisorOfferingId: String(off.offeringId),
           complete: false,
-          priceHintUsd,
+          ...(priceHintUsd != null ? { priceHintUsd } : {}),
         });
       }
     }
