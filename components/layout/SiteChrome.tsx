@@ -48,7 +48,7 @@ export function SiteHeader({ tone = "light" }: SiteHeaderProps) {
 
         <nav className="flex items-center gap-3 sm:gap-5">
           <Link
-            href="/search?passport=COL&destination=valletta&language=english"
+            href="/search"
             className={cn(
               "hidden text-sm font-medium transition sm:inline",
               dark
