@@ -65,21 +65,27 @@ export function enabledProgramsFromCatalog(
   );
 
   if (language === "english") {
-    return all.filter(
-      (p) =>
-        !/alemán|goethe|testdaf|francés|delf|italiano|español peninsular/i.test(
-          p.title
-        )
-    );
+    // Titles are often EN ("General French"); keep bilingual English & French.
+    return all.filter((p) => {
+      const t = p.title;
+      if (/english\s*&\s*french|french\s*&\s*english/i.test(t)) return true;
+      if (/\bfrench\b|franc[eé]s|delf/i.test(t)) return false;
+      if (/\bgerman\b|alem[aá]n|goethe|testdaf/i.test(t)) return false;
+      if (/\bitalian\b|italiano/i.test(t)) return false;
+      if (/espa[nñ]ol peninsular/i.test(t)) return false;
+      return true;
+    });
   }
   if (language === "german") {
-    return all.filter((p) => /alemán|goethe|testdaf/i.test(p.title));
+    return all.filter((p) =>
+      /\bgerman\b|alem[aá]n|goethe|testdaf/i.test(p.title)
+    );
   }
   if (language === "french") {
-    return all.filter((p) => /francés|delf/i.test(p.title));
+    return all.filter((p) => /\bfrench\b|franc[eé]s|delf/i.test(p.title));
   }
   if (language === "italian") {
-    return all.filter((p) => /italiano/i.test(p.title));
+    return all.filter((p) => /\bitalian\b|italiano/i.test(p.title));
   }
   if (language === "portuguese") {
     return all.filter((p) =>
