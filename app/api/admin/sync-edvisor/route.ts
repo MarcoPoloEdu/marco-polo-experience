@@ -28,6 +28,8 @@ export async function POST(request: Request) {
         sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
         schools: catalog.schools.length,
         programs: catalog.programs.length,
+        destinations: catalog.destinations.length,
+        services: (catalog.services ?? []).length,
         curationUpdatedAt: curation.updatedAt,
       },
       { status: result.ok ? 200 : result.configured ? 502 : 503 }

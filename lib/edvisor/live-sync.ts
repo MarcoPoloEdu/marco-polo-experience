@@ -2,11 +2,12 @@
  * Pull ALL language schools connected to the Marco Polo Edvisor agency
  * and map them into the Experience catalog shape.
  *
- * Primary API (from Edvisor GraphQL schema / docs.edvisor.io):
- *   schoolCompanyConnectedList → campuses (School[])
- *   offeringsList(filter: { schoolIds, isEnabled }) → COURSE offerings + prices
+ * Primary API (api-v2 GraphQL, Bearer EDVISOR_API_KEY — server-only):
+ *   schoolCompanyConnectedList → campuses (School[]) + googlePlace city
+ *   offeringsList(filter: { schoolIds, isEnabled }) → COURSE + service offerings
  *
- * Auth: Authorization: Bearer EDVISOR_API_KEY (server-only).
+ * No blind host fallback. Prices here are inventory hints only —
+ * exact-quote remains the charge source of truth.
  */
 
 import "server-only";
@@ -23,6 +24,8 @@ import type {
   EdvisorProgram,
   EdvisorProgramKind,
   EdvisorSchool,
+  EdvisorService,
+  EdvisorServiceKind,
 } from "@marco-polo/experience-edvisor";
 
 // Diagnostics label — real persistence is Firestore catalogVersions
@@ -42,6 +45,10 @@ type ConnectedSchool = {
     code?: string | null;
     nameTranslation?: string | null;
   } | null;
+  googlePlace?: {
+    translation?: string | null;
+    countryId?: number | null;
+  } | null;
   offeredMainRootCourseCategories?: Array<{
     codeName?: string | null;
     offeringCourseCategoryContent?: { codeName?: string | null } | null;
@@ -57,6 +64,14 @@ type ConnectedCompany = {
   schools?: ConnectedSchool[] | null;
 };
 
+type OfferingPrice = {
+  durationAmount?: number | null;
+  durationTypeId?: number | null;
+  originalPriceUsd?: number | null;
+  bestPromotionalPriceUsd?: number | null;
+  amountIsPerDuration?: boolean | null;
+};
+
 type OfferingRow = {
   offeringId: number;
   schoolId: number;
@@ -68,13 +83,20 @@ type OfferingRow = {
   school?: { name?: string | null; email?: string | null } | null;
   offeringCourse?: {
     name?: string | null;
-    prices?: Array<{
-      durationAmount?: number | null;
-      durationTypeId?: number | null;
-      originalPriceUsd?: number | null;
-      bestPromotionalPriceUsd?: number | null;
-      amountIsPerDuration?: boolean | null;
-    }> | null;
+    prices?: OfferingPrice[] | null;
+  } | null;
+  offeringService?: {
+    name?: string | null;
+    location?: string | null;
+    provider?: string | null;
+    prices?: OfferingPrice[] | null;
+  } | null;
+  offeringAccommodation?: {
+    name?: string | null;
+    prices?: OfferingPrice[] | null;
+  } | null;
+  offeringInsurance?: {
+    name?: string | null;
   } | null;
 };
 
@@ -105,6 +127,10 @@ query ConnectedLanguageSchools($limit: Int!, $offset: Int!) {
           code
           nameTranslation(languageCode: en)
         }
+        googlePlace {
+          translation(languageCode: en)
+          countryId
+        }
         offeredMainRootCourseCategories {
           codeName
           offeringCourseCategoryContent { codeName }
@@ -116,13 +142,12 @@ query ConnectedLanguageSchools($limit: Int!, $offset: Int!) {
 `;
 
 const OFFERINGS_QUERY = `
-query SchoolCourseOfferings($schoolIds: [Int!]!, $limit: Int!, $offset: Int!) {
+query SchoolOfferingsInventory($schoolIds: [Int!]!, $limit: Int!, $offset: Int!) {
   offeringsList(
     pagination: { limit: $limit, offset: $offset }
     filter: {
       schoolIds: $schoolIds
       isEnabled: true
-      hasOfferingPriceTemplate: true
     }
   ) {
     count
@@ -144,6 +169,31 @@ query SchoolCourseOfferings($schoolIds: [Int!]!, $limit: Int!, $offset: Int!) {
           bestPromotionalPriceUsd
           amountIsPerDuration
         }
+      }
+      offeringService {
+        name(languageCode: en)
+        location
+        provider
+        prices(limit: 4) {
+          durationAmount
+          durationTypeId
+          originalPriceUsd
+          bestPromotionalPriceUsd
+          amountIsPerDuration
+        }
+      }
+      offeringAccommodation {
+        name(languageCode: en)
+        prices(limit: 4) {
+          durationAmount
+          durationTypeId
+          originalPriceUsd
+          bestPromotionalPriceUsd
+          amountIsPerDuration
+        }
+      }
+      offeringInsurance {
+        name(languageCode: en)
       }
     }
   }
@@ -176,14 +226,21 @@ function categoryLooksLikeLanguage(school: ConnectedSchool): boolean {
     .join(" ")
     .toLowerCase();
   // Exclude obvious non-language roots when present
-  if (/higher.?ed|university|pathway|vocational|high.?school|k-12/.test(blob) &&
-      !/language|english|french|german|spanish|italian|exam|ielts|toefl|goethe|delf/.test(blob)) {
+  if (
+    /higher.?ed|university|pathway|vocational|high.?school|k-12/.test(blob) &&
+    !/language|english|french|german|spanish|italian|exam|ielts|toefl|goethe|delf/.test(
+      blob
+    )
+  ) {
     return false;
   }
   return true;
 }
 
-function inferLanguageCodes(school: ConnectedSchool, titles: string[]): EdvisorLanguageCode[] {
+function inferLanguageCodes(
+  school: ConnectedSchool,
+  titles: string[]
+): EdvisorLanguageCode[] {
   const blob = [
     school.name,
     ...(school.offeredMainRootCourseCategories ?? []).map(
@@ -199,7 +256,10 @@ function inferLanguageCodes(school: ConnectedSchool, titles: string[]): EdvisorL
   if (/french|fran[cç]ais|franc[eé]s|delf|dalf/.test(blob)) codes.push("french");
   if (/italian|italiano/.test(blob)) codes.push("italian");
   if (/spanish|espa[nñ]ol|castellano|dele/.test(blob)) codes.push("spanish");
-  if (/english|ingl[eé]s|ielts|toefl|cambridge|general english/.test(blob) || codes.length === 0) {
+  if (
+    /english|ingl[eé]s|ielts|toefl|cambridge|general english/.test(blob) ||
+    codes.length === 0
+  ) {
     codes.push("english");
   }
   return [...new Set(codes)];
@@ -213,12 +273,34 @@ function inferProgramKind(title: string): EdvisorProgramKind {
   return "general";
 }
 
-/** durationTypeId: common Edvisor convention — 3 often = week; we also check amountIsPerDuration */
-function weeklyUsdFromPrices(
-  prices: NonNullable<NonNullable<OfferingRow["offeringCourse"]>["prices"]>
-): number | null {
+function mapServiceKind(codeName: string | null | undefined): EdvisorServiceKind {
+  const code = (codeName ?? "").toUpperCase();
+  if (code.includes("ACCOMMOD") || code === "HOUSING") return "accommodation";
+  if (code.includes("INSUR")) return "insurance";
+  if (code.includes("TRANSFER") || code.includes("AIRPORT") || code.includes("PICKUP")) {
+    return "transfer";
+  }
+  if (code.includes("FEE") || code.includes("MATERIAL") || code.includes("REGIST")) {
+    return "fee";
+  }
+  if (code.includes("SERVICE") || code.includes("ADDON") || code.includes("ADD-ON")) {
+    return "addon";
+  }
+  return "other";
+}
+
+function isCourseOffering(o: OfferingRow): boolean {
+  const code = (o.offeringType?.codeName ?? "").toUpperCase();
+  if (code === "COURSE" || code.includes("COURSE")) return true;
+  if (o.offeringCourse && !o.offeringService && !o.offeringAccommodation && !o.offeringInsurance) {
+    return true;
+  }
+  return false;
+}
+
+/** durationTypeId: common Edvisor convention — prefer per-duration weekly hints */
+function weeklyUsdFromPrices(prices: OfferingPrice[] | null | undefined): number | null {
   if (!prices?.length) return null;
-  // Prefer weekly (durationAmount 1, type week-ish) else min USD / durationAmount
   const candidates: number[] = [];
   for (const p of prices) {
     const usd = p.bestPromotionalPriceUsd ?? p.originalPriceUsd;
@@ -232,6 +314,40 @@ function weeklyUsdFromPrices(
   }
   if (!candidates.length) return null;
   return Math.round(Math.min(...candidates));
+}
+
+function hintUsdFromPrices(prices: OfferingPrice[] | null | undefined): number | undefined {
+  const weekly = weeklyUsdFromPrices(prices);
+  if (weekly != null) return weekly;
+  if (!prices?.length) return undefined;
+  for (const p of prices) {
+    const usd = p.bestPromotionalPriceUsd ?? p.originalPriceUsd;
+    if (usd != null && usd > 0) return Math.round(usd);
+  }
+  return undefined;
+}
+
+/**
+ * Prefer googlePlace.translation city segment, else address parse, else country.
+ * Never invents a tourist city name.
+ */
+function resolveCity(campus: ConnectedSchool, countryName: string): string {
+  const place = campus.googlePlace?.translation?.trim();
+  if (place) {
+    // Typical: "Auckland, New Zealand" or "Berlin"
+    const first = place.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const address = campus.address?.trim();
+  if (address) {
+    const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      // Prefer penultimate segment (city before country)
+      return parts[parts.length - 2]!;
+    }
+    if (parts.length === 1) return parts[0]!;
+  }
+  return countryName;
 }
 
 async function fetchAllConnectedCompanies(): Promise<ConnectedCompany[]> {
@@ -258,13 +374,10 @@ async function fetchAllConnectedCompanies(): Promise<ConnectedCompany[]> {
   return all;
 }
 
-async function fetchCourseOfferingsForSchools(
-  schoolIds: number[]
-): Promise<OfferingRow[]> {
+async function fetchOfferingsForSchools(schoolIds: number[]): Promise<OfferingRow[]> {
   const pageSize = 50;
   const all: OfferingRow[] = [];
 
-  // Batch school IDs to keep queries bounded
   for (let i = 0; i < schoolIds.length; i += 25) {
     const batch = schoolIds.slice(i, i + 25);
     let offset = 0;
@@ -276,14 +389,7 @@ async function fetchCourseOfferingsForSchools(
 
       const page = data.offeringsList?.data ?? [];
       count = data.offeringsList?.count ?? page.length;
-      all.push(
-        ...page.filter(
-          (o) =>
-            o.offeringType?.codeName === "COURSE" ||
-            Boolean(o.offeringCourse) ||
-            !o.offeringType?.codeName
-        )
-      );
+      all.push(...page);
       offset += pageSize;
       if (!page.length) break;
     }
@@ -310,12 +416,13 @@ export type EdvisorSyncResult = {
   languageSchools: number;
   programs: number;
   destinations: number;
+  services: number;
   catalogPath: string;
   error?: string;
 };
 
 /**
- * Sync live Edvisor language schools → data/edvisor-live-catalog.json
+ * Sync live Edvisor language schools → Firestore catalogVersions (active).
  */
 export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
   if (!isEdvisorApiConfigured()) {
@@ -327,6 +434,7 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       languageSchools: 0,
       programs: 0,
       destinations: 0,
+      services: 0,
       catalogPath: liveCatalogPath(),
       error:
         "EDVISOR_API_KEY no configurada. Pide la API key de la agencia en Edvisor (Bearer) y añádela al entorno.",
@@ -341,7 +449,6 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
         (c.schools ?? []).map((s) => ({
           ...s,
           schoolCompanyId: s.schoolCompanyId || c.schoolCompanyId,
-          // Prefer campus name; fall back to company
           name: s.name || c.name,
         }))
       )
@@ -349,60 +456,60 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       .filter(categoryLooksLikeLanguage);
 
     const schoolIds = campuses.map((s) => s.schoolId);
-    const offerings = schoolIds.length
-      ? await fetchCourseOfferingsForSchools(schoolIds)
-      : [];
+    const offerings = schoolIds.length ? await fetchOfferingsForSchools(schoolIds) : [];
 
-    const offeringsBySchool = new Map<number, OfferingRow[]>();
+    const courseBySchool = new Map<number, OfferingRow[]>();
+    const serviceBySchool = new Map<number, OfferingRow[]>();
     for (const o of offerings) {
       if (o.isDeleted || o.isEnabled === false) continue;
-      const list = offeringsBySchool.get(o.schoolId) ?? [];
-      list.push(o);
-      offeringsBySchool.set(o.schoolId, list);
+      if (isCourseOffering(o)) {
+        const list = courseBySchool.get(o.schoolId) ?? [];
+        list.push(o);
+        courseBySchool.set(o.schoolId, list);
+      } else {
+        const list = serviceBySchool.get(o.schoolId) ?? [];
+        list.push(o);
+        serviceBySchool.set(o.schoolId, list);
+      }
     }
 
-    // Language schools = campuses with at least one COURSE offering (or keep campus if offerings API empty but categories look language)
     const languageCampuses = campuses.filter((s) => {
-      const offs = offeringsBySchool.get(s.schoolId) ?? [];
-      if (offs.length) return true;
-      // If we got zero offerings globally, still include connected campuses (API may restrict price fields)
+      const courses = courseBySchool.get(s.schoolId) ?? [];
+      if (courses.length) return true;
+      // If offerings API returned nothing globally, still include connected campuses
       return offerings.length === 0;
     });
 
     const destinationsMap = new Map<string, EdvisorDestination>();
     const schools: EdvisorSchool[] = [];
     const programs: EdvisorProgram[] = [];
+    const services: EdvisorService[] = [];
 
     for (const campus of languageCampuses) {
       const countryName =
-        campus.country?.nameTranslation ||
-        campus.country?.code ||
-        "International";
+        campus.country?.nameTranslation || campus.country?.code || "International";
       const countryCode = (campus.country?.code || "XX").toUpperCase();
-      const cityGuess =
-        campus.address?.split(",").slice(-2, -1)[0]?.trim() ||
-        campus.address?.split(",")[0]?.trim() ||
-        countryName;
+      const city = resolveCity(campus, countryName);
 
-      const destId = `edv-${countryCode.toLowerCase()}-${slugify(cityGuess)}`;
-      const titles = (offeringsBySchool.get(campus.schoolId) ?? []).map(
+      const destId = `edv-${countryCode.toLowerCase()}-${slugify(city)}`;
+      const courseTitles = (courseBySchool.get(campus.schoolId) ?? []).map(
         (o) => o.offeringCourse?.name || o.name || ""
       );
-      const languageCodes = inferLanguageCodes(campus, titles);
+      const languageCodes = inferLanguageCodes(campus, courseTitles);
 
       if (!destinationsMap.has(destId)) {
         destinationsMap.set(destId, {
           id: destId,
           country: countryName,
-          city: cityGuess,
+          city,
           countryCode,
           languageCodes,
           imageUrl:
             "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
           heroUrl:
             "https://images.unsplash.com/photo-1546412414-e1885259563a?auto=format&fit=crop&w=1800&q=80",
-          tagline: `Idiomas en ${cityGuess}`,
-          blurb: `Escuelas conectadas vía Edvisor en ${cityGuess}, ${countryName}.`,
+          tagline: `Idiomas en ${city}`,
+          blurb: `Escuelas conectadas vía Edvisor en ${city}, ${countryName}.`,
           vibe: ["Edvisor", "Idiomas"],
           visaFriction: "medium",
           fromWeeklyUsd: 0,
@@ -413,8 +520,8 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       }
 
       const schoolId = `edv-school-${campus.schoolId}`;
-      const campusOfferings = offeringsBySchool.get(campus.schoolId) ?? [];
-      const hasPricedCourse = campusOfferings.some(
+      const campusCourses = courseBySchool.get(campus.schoolId) ?? [];
+      const hasPricedCourse = campusCourses.some(
         (o) => weeklyUsdFromPrices(o.offeringCourse?.prices ?? []) != null
       );
 
@@ -423,15 +530,14 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
         name: campus.name,
         email: campus.email || "schools@marcopoloeducation.com",
         destinationId: destId,
-        complete: campusOfferings.length > 0 ? hasPricedCourse || campusOfferings.length > 0 : false,
+        complete: campusCourses.length > 0 ? hasPricedCourse || campusCourses.length > 0 : false,
         edvisorProviderId: String(campus.schoolId),
       });
 
-      for (const off of campusOfferings) {
+      for (const off of campusCourses) {
         const title =
           off.offeringCourse?.name || off.name || `Course #${off.offeringId}`;
         const weekly = weeklyUsdFromPrices(off.offeringCourse?.prices ?? []);
-        // Missing weekly price → incomplete (not inventable). Zero is invalid for sale.
         const complete = weekly != null && weekly > 0;
         programs.push({
           id: `edv-offering-${off.offeringId}`,
@@ -440,7 +546,6 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
           kind: inferProgramKind(title),
           title,
           summary: `${campus.name} · Edvisor offering ${off.offeringId}`,
-          // lessonsPerWeek unknown until schema provides it — 0 means unset, not invented 20
           lessonsPerWeek: 0,
           weeklyPriceUsd: weekly ?? 0,
           highlights: complete
@@ -450,14 +555,46 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
             "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=80",
           complete,
           currency: "USD",
-          // Durations unknown — 0 means unset; admin/catalog must not invent 4/8/12
           minWeeks: 0,
           maxWeeks: 0,
         });
       }
+
+      for (const off of serviceBySchool.get(campus.schoolId) ?? []) {
+        const typeCode = off.offeringType?.codeName ?? undefined;
+        const kind = mapServiceKind(typeCode);
+        const title =
+          off.offeringAccommodation?.name ||
+          off.offeringService?.name ||
+          off.offeringInsurance?.name ||
+          off.name ||
+          `Service #${off.offeringId}`;
+        const priceHintUsd =
+          hintUsdFromPrices(off.offeringAccommodation?.prices) ??
+          hintUsdFromPrices(off.offeringService?.prices);
+        // Inventory only — never auto-complete for checkout (exact-quote remains SoT)
+        services.push({
+          id: `edv-service-${off.offeringId}`,
+          schoolId,
+          destinationId: destId,
+          kind,
+          title,
+          summary: [
+            campus.name,
+            typeCode,
+            off.offeringService?.location,
+            off.offeringService?.provider,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          offeringTypeCode: typeCode,
+          edvisorOfferingId: String(off.offeringId),
+          complete: false,
+          priceHintUsd,
+        });
+      }
     }
 
-    // Recompute fromWeeklyUsd
     for (const dest of destinationsMap.values()) {
       const weeks = programs
         .filter((p) => p.destinationId === dest.id && p.complete && p.weeklyPriceUsd > 0)
@@ -470,11 +607,12 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
         source: "edvisor-live-api",
         version: new Date().toISOString().slice(0, 10),
         exportedAt: new Date().toISOString(),
-        note: `Synced from Edvisor schoolCompanyConnectedList + offeringsList (COURSE). ${languageCampuses.length} language campuses.`,
+        note: `Synced from Edvisor schoolCompanyConnectedList + offeringsList. ${languageCampuses.length} language campuses · ${services.length} services (inventory, not checkout).`,
       },
       destinations: [...destinationsMap.values()],
       schools,
       programs,
+      services,
     };
 
     await writeLiveEdvisorCatalog(catalog);
@@ -487,6 +625,7 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       languageSchools: languageCampuses.length,
       programs: programs.length,
       destinations: destinationsMap.size,
+      services: services.length,
       catalogPath: liveCatalogPath(),
     };
   } catch (err) {
@@ -498,6 +637,7 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
       languageSchools: 0,
       programs: 0,
       destinations: 0,
+      services: 0,
       catalogPath: liveCatalogPath(),
       error: err instanceof Error ? err.message : "Sync failed",
     };

@@ -10,11 +10,17 @@ async function buildPayload(
   curation: Awaited<ReturnType<typeof getCurationState>>
 ) {
   const { catalog, source } = await resolveEdvisorCatalog();
+  const services = catalog.services ?? [];
 
-  // Admin shows ALL complete schools + incomplete (so Felipe can see inventory gaps)
+  // Admin shows ALL schools + incomplete (inventory gaps). Defaults OFF (=== true).
   const schools = catalog.schools.map((s) => ({
-    ...s,
-    enabled: curation.schools[s.id] ?? true,
+    id: s.id,
+    name: s.name,
+    email: s.email,
+    destinationId: s.destinationId,
+    complete: s.complete,
+    edvisorProviderId: s.edvisorProviderId,
+    enabled: curation.schools[s.id] === true,
   }));
 
   const schoolName = new Map(schools.map((s) => [s.id, s.name]));
@@ -28,7 +34,32 @@ async function buildPayload(
     kind: p.kind,
     destinationId: p.destinationId,
     complete: p.complete,
-    enabled: curation.programs[p.id] ?? true,
+    enabled: curation.programs[p.id] === true,
+  }));
+
+  const destinations = catalog.destinations.map((d) => ({
+    id: d.id,
+    country: d.country,
+    city: d.city,
+    countryCode: d.countryCode,
+    languageCodes: d.languageCodes,
+    fromWeeklyUsd: d.fromWeeklyUsd,
+    schoolCount: schools.filter((s) => s.destinationId === d.id).length,
+    programCount: programs.filter((p) => p.destinationId === d.id).length,
+  }));
+
+  const serviceRows = services.map((s) => ({
+    id: s.id,
+    title: s.title,
+    kind: s.kind,
+    schoolId: s.schoolId,
+    schoolName: schoolName.get(s.schoolId) ?? "",
+    destinationId: s.destinationId,
+    offeringTypeCode: s.offeringTypeCode,
+    complete: s.complete,
+    priceHintUsd: s.priceHintUsd,
+    /** Services stay curation-gated / off checkout until exact-quote prices them. */
+    checkoutEligible: false,
   }));
 
   return {
@@ -36,14 +67,19 @@ async function buildPayload(
     sourceLabel: `${catalog.meta.source}@${catalog.meta.version}`,
     metaNote: catalog.meta.note,
     edvisorApiConfigured: isEdvisorApiConfigured(),
+    destinations,
     schools,
     programs,
+    services: serviceRows,
     curation,
     stats: {
+      destinationsTotal: destinations.length,
       schoolsTotal: schools.length,
       schoolsComplete: schools.filter((s) => s.complete).length,
       programsTotal: programs.length,
       programsComplete: programs.filter((p) => p.complete).length,
+      servicesTotal: serviceRows.length,
+      servicesComplete: serviceRows.filter((s) => s.complete).length,
     },
   };
 }
@@ -100,8 +136,6 @@ export async function PATCH(request: Request) {
       if (!school) {
         return NextResponse.json({ error: "School not found in Edvisor catalog" }, { status: 400 });
       }
-      // Only allow enabling complete schools for public cotizador semantics,
-      // but allow disabling anything.
       if (body.enabled && !school.complete) {
         return NextResponse.json(
           { error: "Solo se pueden activar escuelas complete en Edvisor" },
