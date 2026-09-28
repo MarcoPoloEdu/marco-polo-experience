@@ -54,6 +54,34 @@ export interface EdvisorProgram {
   maxWeeks: number;
 }
 
+/** Inventory extras (accommodation, transfer, insurance, fees) — not charge SoT. */
+export type EdvisorServiceKind =
+  | "accommodation"
+  | "insurance"
+  | "transfer"
+  | "addon"
+  | "fee"
+  | "other";
+
+export interface EdvisorService {
+  id: string;
+  schoolId: string;
+  destinationId: string;
+  kind: EdvisorServiceKind;
+  title: string;
+  summary: string;
+  /** Edvisor offeringType.codeName when known. */
+  offeringTypeCode?: string;
+  edvisorOfferingId?: string;
+  /**
+   * True only when a non-invented catalog price exists.
+   * Still not chargeable until exact-quote prices the line.
+   */
+  complete: boolean;
+  /** Informational USD hint only — never used as Stripe charge SoT. */
+  priceHintUsd?: number;
+}
+
 export interface EdvisorCatalogMeta {
   source: string;
   version: string;
@@ -66,4 +94,6 @@ export interface EdvisorCatalog {
   destinations: EdvisorDestination[];
   schools: EdvisorSchool[];
   programs: EdvisorProgram[];
+  /** Optional — older vendor seeds omit this; treat missing as []. */
+  services?: EdvisorService[];
 }

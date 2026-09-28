@@ -4,13 +4,15 @@ import type {
   EdvisorDestination,
   EdvisorProgram,
   EdvisorSchool,
+  EdvisorService,
 } from "./types";
 
 export type * from "./types";
 
 /** Load the portable Edvisor snapshot shipped with this package. */
 export function loadEdvisorCatalog(): EdvisorCatalog {
-  return catalogJson as EdvisorCatalog;
+  const catalog = catalogJson as EdvisorCatalog;
+  return { ...catalog, services: catalog.services ?? [] };
 }
 
 export function listCompleteSchools(catalog: EdvisorCatalog = loadEdvisorCatalog()): EdvisorSchool[] {
@@ -42,6 +44,19 @@ export function getEdvisorDestination(
   catalog: EdvisorCatalog = loadEdvisorCatalog()
 ): EdvisorDestination | undefined {
   return catalog.destinations.find((d) => d.id === id);
+}
+
+export function listEdvisorServices(
+  catalog: EdvisorCatalog = loadEdvisorCatalog()
+): EdvisorService[] {
+  return catalog.services ?? [];
+}
+
+export function getEdvisorService(
+  id: string,
+  catalog: EdvisorCatalog = loadEdvisorCatalog()
+): EdvisorService | undefined {
+  return (catalog.services ?? []).find((s) => s.id === id);
 }
 
 export function catalogSourceLabel(catalog: EdvisorCatalog = loadEdvisorCatalog()): string {
