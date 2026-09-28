@@ -14,10 +14,12 @@ import type { Destination, Program, ProgramKind } from "@/lib/data/types";
 
 export type CatalogSource = "edvisor" | "fallback";
 
+export type ExperienceSchool = EdvisorSchool & { enabled: boolean };
+
 export interface ExperienceCatalog {
   destinations: Destination[];
   programs: Program[];
-  schools: EdvisorSchool[];
+  schools: ExperienceSchool[];
   source: CatalogSource;
   sourceLabel: string;
   metaNote?: string;
@@ -82,17 +84,19 @@ export function loadExperienceCatalogSync(
     const catalog = catalogOverride ?? loadEdvisorCatalog();
     const cur = curation ?? { schools: {}, programs: {} };
 
-    const schools = catalog.schools.filter((s) => s.complete);
+    const schools: ExperienceSchool[] = catalog.schools.map((s) => ({
+      ...s,
+      enabled: cur.schools[s.id] === true,
+    }));
     const destinations = catalog.destinations.map(mapDestination);
 
+    // Browse: include programs under enabled schools (complete not required).
+    // Charge amounts stay live-quote — weeklyUsd is a hint only.
     const programs = catalog.programs
-      .filter((p) => p.complete)
       .filter((p) => {
         const school = getEdvisorSchool(p.schoolId, catalog);
-        if (!school?.complete) return false;
-        // V2: missing curation key = DISABLED (never ?? true)
-        const schoolEnabled = cur.schools[school.id] === true;
-        return schoolEnabled;
+        if (!school) return false;
+        return cur.schools[school.id] === true;
       })
       .map((p) => {
         const school = getEdvisorSchool(p.schoolId, catalog);

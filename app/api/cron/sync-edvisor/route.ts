@@ -12,7 +12,7 @@ export const maxDuration = 120;
  * Server-side Edvisor inventory sync (no Firebase admin session).
  * Auth: Authorization: Bearer CRON_SECRET
  *
- * Phase A: scoped short-course pull (ILSC CA + Gateway St. Julians only).
+ * Phase A: scoped short-course pull (ILSC 54/114/115 + Gateway GSE 3846).
  * Optional: ?applyInitial=1 — enable only those campuses after sync.
  */
 export async function POST(request: Request) {

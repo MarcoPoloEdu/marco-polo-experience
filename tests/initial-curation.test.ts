@@ -7,6 +7,7 @@ vi.mock("server-only", () => ({}));
 
 import type { EdvisorCatalog } from "@marco-polo/experience-edvisor";
 import {
+  KNOWN_INITIAL_SCHOOL_IDS,
   buildInitialCuration,
   matchInitialCampus,
 } from "@/lib/edvisor/initial-curation";
@@ -33,9 +34,9 @@ const sampleCatalog: EdvisorCatalog = {
       fromWeeklyUsd: 0,
     },
     {
-      id: "edv-mt-st-julians",
+      id: "edv-mt-san-gwann",
       country: "Malta",
-      city: "St. Julians",
+      city: "San Gwann",
       countryCode: "MT",
       languageCodes: ["english"],
       imageUrl: "",
@@ -46,46 +47,68 @@ const sampleCatalog: EdvisorCatalog = {
       visaFriction: "low",
       fromWeeklyUsd: 0,
     },
+    {
+      id: "edv-ca-toronto",
+      country: "Canada",
+      city: "Toronto",
+      countryCode: "CA",
+      languageCodes: ["english"],
+      imageUrl: "",
+      heroUrl: "",
+      tagline: "",
+      blurb: "",
+      vibe: [],
+      visaFriction: "medium",
+      fromWeeklyUsd: 0,
+    },
   ],
   schools: [
     {
-      id: "edv-school-1",
-      name: "ILSC Vancouver",
+      id: "edv-school-54",
+      name: "ILSC - Vancouver",
       email: "a@x.com",
       destinationId: "edv-ca-vancouver",
       complete: true,
-      edvisorProviderId: "100",
+      edvisorProviderId: "54",
+    },
+    {
+      id: "edv-school-junior",
+      name: "ILSC Junior Programs - Toronto",
+      email: "j@x.com",
+      destinationId: "edv-ca-toronto",
+      complete: true,
+      edvisorProviderId: "3167",
     },
     {
       id: "edv-school-ilac",
       name: "ILAC Toronto",
       email: "b@x.com",
-      destinationId: "edv-ca-vancouver",
+      destinationId: "edv-ca-toronto",
       complete: true,
       edvisorProviderId: "999",
     },
     {
       id: "edv-school-gw",
-      name: "Gateway School of English",
+      name: "Gateway School of English GSE",
       email: "c@x.com",
-      destinationId: "edv-mt-st-julians",
+      destinationId: "edv-mt-san-gwann",
       complete: true,
-      edvisorProviderId: "200",
+      edvisorProviderId: "3846",
     },
     {
-      id: "edv-school-other",
-      name: "Random School Toronto",
-      email: "d@x.com",
-      destinationId: "edv-ca-vancouver",
+      id: "edv-school-gw-junior",
+      name: "Gateway School of English - Junior",
+      email: "cj@x.com",
+      destinationId: "edv-mt-san-gwann",
       complete: true,
-      edvisorProviderId: "300",
+      edvisorProviderId: "4839",
     },
   ],
   programs: [
     {
       id: "p1",
       destinationId: "edv-ca-vancouver",
-      schoolId: "edv-school-1",
+      schoolId: "edv-school-54",
       kind: "general",
       title: "GE",
       summary: "",
@@ -93,20 +116,36 @@ const sampleCatalog: EdvisorCatalog = {
       weeklyPriceUsd: 300,
       highlights: [],
       imageUrl: "",
-      complete: true,
+      complete: false,
       currency: "USD",
       minWeeks: 1,
       maxWeeks: 52,
     },
     {
-      id: "p-other",
+      id: "p-no-price",
       destinationId: "edv-ca-vancouver",
-      schoolId: "edv-school-other",
+      schoolId: "edv-school-54",
       kind: "general",
-      title: "Other",
+      title: "No price",
       summary: "",
       lessonsPerWeek: 20,
-      weeklyPriceUsd: 200,
+      weeklyPriceUsd: 0,
+      highlights: [],
+      imageUrl: "",
+      complete: false,
+      currency: "USD",
+      minWeeks: 1,
+      maxWeeks: 52,
+    },
+    {
+      id: "p-junior",
+      destinationId: "edv-ca-toronto",
+      schoolId: "edv-school-junior",
+      kind: "general",
+      title: "Junior camp",
+      summary: "",
+      lessonsPerWeek: 20,
+      weeklyPriceUsd: 400,
       highlights: [],
       imageUrl: "",
       complete: true,
@@ -119,34 +158,32 @@ const sampleCatalog: EdvisorCatalog = {
 };
 
 describe("initial curation set", () => {
-  it("matches ILSC Vancouver and Gateway St. Julians, never ILAC", () => {
-    const ilsc = sampleCatalog.schools[0]!;
-    const ilac = sampleCatalog.schools[1]!;
-    const gw = sampleCatalog.schools[2]!;
-    expect(matchInitialCampus(ilsc, sampleCatalog)?.label).toContain("ILSC Vancouver");
-    expect(matchInitialCampus(ilac, sampleCatalog)).toBeNull();
-    expect(matchInitialCampus(gw, sampleCatalog)?.label).toContain("Gateway");
+  it("seeds known adult ids 54/114/115/3846", () => {
+    expect(KNOWN_INITIAL_SCHOOL_IDS.sort((a, b) => a - b)).toEqual([
+      54, 114, 115, 3846,
+    ]);
   });
 
-  it("matches ILSC Toronto by known campus id 114", () => {
-    const toronto: (typeof sampleCatalog.schools)[number] = {
-      id: "edv-school-114",
-      name: "ILSC Language Schools",
-      email: "t@x.com",
-      destinationId: "edv-ca-vancouver",
-      complete: true,
-      edvisorProviderId: "114",
-    };
-    expect(matchInitialCampus(toronto, sampleCatalog)?.label).toContain("ILSC Toronto");
+  it("matches adults by id; excludes Junior and ILAC", () => {
+    expect(matchInitialCampus(sampleCatalog.schools[0]!, sampleCatalog)?.label).toContain(
+      "ILSC Vancouver"
+    );
+    expect(matchInitialCampus(sampleCatalog.schools[1]!, sampleCatalog)).toBeNull();
+    expect(matchInitialCampus(sampleCatalog.schools[2]!, sampleCatalog)).toBeNull();
+    expect(matchInitialCampus(sampleCatalog.schools[3]!, sampleCatalog)?.label).toContain(
+      "Gateway"
+    );
+    expect(matchInitialCampus(sampleCatalog.schools[4]!, sampleCatalog)).toBeNull();
   });
 
-  it("buildInitialCuration enables only matched complete schools + their programs", () => {
+  it("enables priced programs under enabled schools even when incomplete", () => {
     const result = buildInitialCuration(sampleCatalog, "admin@marcopoloeducation.com");
-    expect(result.curation.schools["edv-school-1"]).toBe(true);
+    expect(result.curation.schools["edv-school-54"]).toBe(true);
     expect(result.curation.schools["edv-school-gw"]).toBe(true);
-    expect(result.curation.schools["edv-school-ilac"]).toBeUndefined();
-    expect(result.curation.schools["edv-school-other"]).toBeUndefined();
+    expect(result.curation.schools["edv-school-junior"]).toBeUndefined();
     expect(result.curation.programs["p1"]).toBe(true);
-    expect(result.curation.programs["p-other"]).toBeUndefined();
+    expect(result.curation.programs["p-no-price"]).toBeUndefined();
+    expect(result.curation.programs["p-junior"]).toBeUndefined();
+    expect(result.programsEnabled).toBeGreaterThan(0);
   });
 });

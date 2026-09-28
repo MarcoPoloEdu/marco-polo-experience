@@ -1,7 +1,7 @@
 /**
  * Phase A — scoped Edvisor inventory for Experience (short language courses).
  *
- * Pull ONLY the initial campuses (ILSC YVR/YYZ/YUL + Gateway St. Julians),
+ * Pull ONLY adult campuses (ILSC 54/114/115 + Gateway GSE 3846),
  * COURSE / WEEK short offerings, then activate Firestore catalog.
  * Exact-quote remains charge SoT — prices here are inventory hints only.
  *
@@ -23,6 +23,8 @@ import {
   INITIAL_CAMPUS_TARGETS,
   KNOWN_INITIAL_SCHOOL_IDS,
   isForceDisabledSchool,
+  isJuniorCampusName,
+  isJuniorSchoolId,
   matchInitialCampusBlob,
   type InitialCampusTarget,
 } from "@/lib/edvisor/initial-curation";
@@ -303,6 +305,9 @@ function matchCampusTarget(
   companyName?: string
 ): InitialCampusTarget | null {
   if (isForceDisabledSchool(campus.name)) return null;
+  if (isJuniorSchoolId(campus.schoolId) || isJuniorCampusName(campus.name)) {
+    return null;
+  }
   const byKnown = INITIAL_CAMPUS_TARGETS.find(
     (t) => t.knownSchoolId === campus.schoolId
   );
@@ -640,7 +645,7 @@ export async function syncEdvisorLanguageSchools(): Promise<EdvisorSyncResult> {
         configured: true,
         schoolCompanies: companiesScanned,
         error:
-          "Phase A: no se resolvieron campuses iniciales (ILSC CA + Gateway St. Julians).",
+          "Phase A: no se resolvieron campuses iniciales (ILSC 54/114/115 + Gateway GSE 3846).",
       });
     }
 
