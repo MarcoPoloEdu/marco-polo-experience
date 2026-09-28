@@ -8,7 +8,7 @@ import { isEdvisorApiConfigured } from "@/lib/edvisor/api";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-/** Pull all connected language schools from Edvisor GraphQL into live catalog. */
+/** Phase A: pull scoped short-course campuses (ILSC CA + Gateway) into live catalog. */
 export async function POST(request: Request) {
   try {
     const auth = await verifyAdminRequest(request.headers.get("authorization"));
