@@ -146,6 +146,7 @@ export function buildInitialCuration(
 ): InitialCurationApplyResult {
   const schools: Record<string, boolean> = {};
   const programs: Record<string, boolean> = {};
+  const destinations: Record<string, boolean> = {};
   const matched: InitialCurationApplyResult["matched"] = [];
   const hitLabels = new Set<string>();
 
@@ -154,7 +155,10 @@ export function buildInitialCuration(
     if (!target) continue;
     hitLabels.add(target.label);
     const enable = school.complete === true;
-    if (enable) schools[school.id] = true;
+    if (enable) {
+      schools[school.id] = true;
+      destinations[school.destinationId] = true;
+    }
     matched.push({
       schoolId: school.id,
       schoolName: school.name,
@@ -168,6 +172,7 @@ export function buildInitialCuration(
   let programsEnabled = 0;
   for (const program of catalog.programs) {
     // Enable priced programs under enabled schools — do not require program.complete
+    // (Sibling bc-833ca94f may remove weeklyPrice gate; leave gate until their PR lands.)
     if (schools[program.schoolId] !== true) continue;
     if (!(program.weeklyPriceUsd > 0)) continue;
     programs[program.id] = true;
@@ -185,6 +190,7 @@ export function buildInitialCuration(
     curation: {
       schools,
       programs,
+      destinations,
       updatedAt: new Date().toISOString(),
       updatedBy: actorEmail,
     },

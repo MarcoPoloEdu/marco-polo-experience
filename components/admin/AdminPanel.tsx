@@ -26,6 +26,8 @@ type AdminSchool = {
   complete: boolean;
   edvisorProviderId?: string;
   enabled: boolean;
+  countryKey?: string;
+  countryLabel?: string;
 };
 
 type AdminProgram = {
@@ -49,6 +51,9 @@ type AdminDestination = {
   fromWeeklyUsd: number;
   schoolCount: number;
   programCount: number;
+  enabledSchoolCount?: number;
+  enabled?: boolean;
+  countryKey?: string;
 };
 
 type AdminService = {
@@ -82,9 +87,12 @@ type CatalogPayload = {
     servicesTotal?: number;
     servicesComplete?: number;
   };
+  maxSchoolsPerCountry?: number;
+  enabledByCountry?: Record<string, number>;
   curation: {
     schools: Record<string, boolean>;
     programs: Record<string, boolean>;
+    destinations?: Record<string, boolean>;
     updatedAt?: string;
     updatedBy?: string;
   };
@@ -286,9 +294,14 @@ export function AdminPanel() {
     if (auth) await signOut(auth);
   };
 
-  const toggle = async (kind: "school" | "program", id: string, enabled: boolean) => {
+  const toggle = async (
+    kind: "school" | "program" | "destination",
+    id: string,
+    enabled: boolean
+  ) => {
     if (!user) return;
     setBusyId(`${kind}:${id}`);
+    setLoadError(null);
     try {
       const token = await user.getIdToken(true);
       const res = await fetch("/api/admin/catalog", {
@@ -300,7 +313,12 @@ export function AdminPanel() {
         body: JSON.stringify({ kind, id, enabled }),
       });
       const raw = await res.text();
-      let data: { error?: string } & Partial<CatalogPayload> = {};
+      let data: {
+        error?: string;
+        code?: string;
+        country?: string;
+        limit?: number;
+      } & Partial<CatalogPayload> = {};
       try {
         data = raw ? (JSON.parse(raw) as typeof data) : {};
       } catch {
@@ -414,7 +432,8 @@ export function AdminPanel() {
           </h1>
           <p className="mt-2 text-sm text-ink/60">
             Sesión: {user.email}. Activa campus como en la asesoría — por defecto{" "}
-            <em>todas off</em>. Solo <em>complete</em> se pueden prender.
+            <em>todas off</em>. Máx. {catalog?.maxSchoolsPerCountry ?? 3} escuelas
+            activas por país. Solo <em>complete</em> se pueden prender.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -444,9 +463,24 @@ export function AdminPanel() {
           {catalog.stats ? (
             <span className="mt-1 block text-ink/70">
               Activas {enabledSchoolCount}/{catalog.stats.schoolsTotal} · Destinos{" "}
-              {catalog.stats.destinationsTotal ?? catalog.destinations?.length ?? 0} · Programas{" "}
-              {catalog.stats.programsTotal} ({catalog.stats.programsComplete} complete) · Servicios{" "}
-              {catalog.stats.servicesTotal ?? catalog.services?.length ?? 0} (checkout off)
+              {catalog.stats.destinationsEnabled ??
+                catalog.destinations?.filter((d) => d.enabled).length ??
+                0}
+              /{catalog.stats.destinationsTotal ?? catalog.destinations?.length ?? 0} ·
+              Programas {catalog.stats.programsEnabled ?? 0}/
+              {catalog.stats.programsTotal} · Servicios{" "}
+              {catalog.stats.servicesTotal ?? catalog.services?.length ?? 0} (checkout
+              off)
+            </span>
+          ) : null}
+          {catalog.enabledByCountry &&
+          Object.keys(catalog.enabledByCountry).length > 0 ? (
+            <span className="mt-1 block text-xs text-ink/55">
+              Por país (máx. {catalog.maxSchoolsPerCountry ?? 3}):{" "}
+              {Object.entries(catalog.enabledByCountry)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([k, n]) => `${k.toUpperCase()} ${n}/${catalog.maxSchoolsPerCountry ?? 3}`)
+                .join(" · ")}
             </span>
           ) : null}
           {catalog.edvisorApiConfigured === false ? (
@@ -557,7 +591,10 @@ export function AdminPanel() {
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       <span className="text-xs text-ink/50">
-                        {s.enabled ? "On" : "Off"}
+                        {s.countryKey
+                          ? `${(s.countryKey || "").toUpperCase()} ${(catalog.enabledByCountry?.[s.countryKey] ?? 0)}/${catalog.maxSchoolsPerCountry ?? 3}`
+                          : null}{" "}
+                        · {s.enabled ? "On" : "Off"}
                       </span>
                       <Switch
                         checked={s.enabled}
@@ -584,26 +621,54 @@ export function AdminPanel() {
               Destinos ({catalog.destinations?.length ?? 0})
             </h2>
             <p className="mt-1 text-xs text-ink/50">
-              Derivados del sync. El cotizador solo muestra destinos con escuelas activas.
+              Inventario del sync. Off desactiva el destino y todas sus escuelas.
+              El cotizador público solo muestra destinos con escuelas activas.
             </p>
             <ul className="mt-4 divide-y divide-ink/10 rounded-xl border border-ink/10 bg-white">
               {(catalog.destinations ?? []).map((d) => {
-                const activeHere = catalog.schools.filter(
-                  (s) => s.destinationId === d.id && s.enabled
-                ).length;
+                const busy = busyId === `destination:${d.id}`;
+                const activeHere = d.enabledSchoolCount ??
+                  catalog.schools.filter(
+                    (s) => s.destinationId === d.id && s.enabled
+                  ).length;
                 return (
-                  <li key={d.id} className="px-4 py-3">
-                    <p className="font-medium text-ink">
-                      {d.city}, {d.country}{" "}
-                      <span className="text-xs font-normal text-ink/50">({d.countryCode})</span>
-                      {activeHere > 0 ? (
-                        <Badge className="ml-2 bg-mint/40 text-ink">{activeHere} activas</Badge>
-                      ) : null}
-                    </p>
-                    <p className="text-xs text-ink/50">
-                      {d.schoolCount} escuelas · {d.programCount} programas
-                      {d.fromWeeklyUsd > 0 ? ` · desde $${d.fromWeeklyUsd}/sem` : ""}
-                    </p>
+                  <li
+                    key={d.id}
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium text-ink">
+                        {d.city}, {d.country}{" "}
+                        <span className="text-xs font-normal text-ink/50">
+                          ({d.countryCode})
+                        </span>
+                        {d.enabled ? (
+                          <Badge className="ml-2 bg-mint/40 text-ink">activo</Badge>
+                        ) : null}
+                        {activeHere > 0 ? (
+                          <Badge className="ml-2 bg-mint/40 text-ink">
+                            {activeHere} escuelas
+                          </Badge>
+                        ) : null}
+                      </p>
+                      <p className="text-xs text-ink/50">
+                        {d.schoolCount} escuelas · {d.programCount} programas
+                        {d.fromWeeklyUsd > 0 ? ` · desde $${d.fromWeeklyUsd}/sem` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="text-xs text-ink/50">
+                        {d.enabled ? "On" : "Off"}
+                      </span>
+                      <Switch
+                        checked={Boolean(d.enabled)}
+                        disabled={busy}
+                        onCheckedChange={(next) => {
+                          void toggle("destination", d.id, Boolean(next));
+                        }}
+                        aria-label={`Activar destino ${d.city}`}
+                      />
+                    </div>
                   </li>
                 );
               })}
