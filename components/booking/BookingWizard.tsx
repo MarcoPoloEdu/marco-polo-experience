@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -28,21 +28,21 @@ import {
 import {
   ACCOMMODATIONS,
   AIRPORT_OPTIONS,
-  CATALOG_SOURCE,
-  CATALOG_SOURCE_LABEL,
   INSURANCE_OPTIONS,
   LANGUAGES,
   NATIONALITIES,
   PROGRAM_KIND_LABELS,
   WEEK_OPTIONS,
-  enabledPrograms,
-  getDestination,
-  getProgram,
-  suggestDestinations,
   type LanguageCode,
   type NationalityCode,
   type WeekOption,
 } from "@/lib/data/mock-catalog";
+import {
+  destLineFromCatalog,
+  enabledProgramsFromCatalog,
+  suggestDestinationsFromCatalog,
+} from "@/lib/catalog/public-catalog";
+import { usePublicCatalog } from "@/hooks/usePublicCatalog";
 import {
   addWeeks,
   calculateBookingPricing,
@@ -58,9 +58,6 @@ const LANGUAGE_CHIPS: LanguageCode[] = [
   "italian",
   "portuguese",
 ];
-
-const DEST_LINE =
-  "🇨🇦 Toronto · 🇬🇧 Londres · 🇮🇪 Dublín · 🇺🇸 Nueva York · y más";
 
 const STEPS = [
   { id: 1, label: "Pasaporte" },
@@ -96,6 +93,19 @@ export function BookingWizard({
   initialProgramId?: string;
   startAtStep?: number;
 } = {}) {
+  const catalogState = usePublicCatalog();
+  const catalogDestinations =
+    catalogState.status === "ready" ? catalogState.catalog.destinations : [];
+  const catalogPrograms =
+    catalogState.status === "ready" ? catalogState.catalog.programs : [];
+  const catalogSource =
+    catalogState.status === "ready" ? catalogState.catalog.source : "edvisor";
+  const catalogSourceLabel =
+    catalogState.status === "ready"
+      ? catalogState.catalog.sourceLabel
+      : "cargando catálogo…";
+  const destLine = destLineFromCatalog(catalogDestinations);
+
   const [step, setStep] = useState(startAtStep && startAtStep >= 1 && startAtStep <= 9 ? startAtStep : 1);
   const [nationality, setNationality] = useState<NationalityCode | "">(
     initialNationality ?? ""
@@ -104,10 +114,7 @@ export function BookingWizard({
     initialLanguage ?? ""
   );
   const [destinationId, setDestinationId] = useState(initialDestinationId ?? "");
-  const [destinationCountry, setDestinationCountry] = useState(() => {
-    if (!initialDestinationId) return "";
-    return getDestination(initialDestinationId)?.country ?? "";
-  });
+  const [destinationCountry, setDestinationCountry] = useState("");
   const [startDate, setStartDate] = useState(defaultStartDate);
   const [weeks, setWeeks] = useState<WeekOption>(4);
   const [programId, setProgramId] = useState(initialProgramId ?? "");
@@ -122,6 +129,12 @@ export function BookingWizard({
   const [error, setError] = useState<string | null>(null);
   const [priceOpen, setPriceOpen] = useState(false);
 
+  useEffect(() => {
+    if (!initialDestinationId || catalogDestinations.length === 0) return;
+    const match = catalogDestinations.find((d) => d.id === initialDestinationId);
+    if (match) setDestinationCountry(match.country);
+  }, [initialDestinationId, catalogDestinations]);
+
   const nationalityItems = useMemo(
     () =>
       Object.fromEntries(
@@ -133,8 +146,11 @@ export function BookingWizard({
   const currentStepMeta = STEPS.find((s) => s.id === step) ?? STEPS[0];
   const endDate = useMemo(() => addWeeks(startDate, weeks), [startDate, weeks]);
   const destinations = useMemo(
-    () => (language ? suggestDestinations(language) : []),
-    [language]
+    () =>
+      language
+        ? suggestDestinationsFromCatalog(catalogDestinations, language)
+        : [],
+    [language, catalogDestinations]
   );
 
   /** Destino: país → ciudad (sin precios en esta etapa). */
@@ -180,11 +196,23 @@ export function BookingWizard({
   }, [destinations, destinationCountry]);
   const programs = useMemo(
     () =>
-      destinationId && language ? enabledPrograms(destinationId, language) : [],
-    [destinationId, language]
+      destinationId && language
+        ? enabledProgramsFromCatalog(
+            catalogDestinations,
+            catalogPrograms,
+            destinationId,
+            language
+          )
+        : [],
+    [destinationId, language, catalogDestinations, catalogPrograms]
   );
-  const destination = destinationId ? getDestination(destinationId) : undefined;
-  const program = programId ? getProgram(programId) : undefined;
+  const destination = destinationId
+    ? catalogDestinations.find((d) => d.id === destinationId)
+    : undefined;
+  const program = programId
+    ? catalogPrograms.find((p) => p.id === programId) ??
+      programs.find((p) => p.id === programId)
+    : undefined;
 
   const pricing = useMemo(() => {
     if (!programId) {
@@ -376,7 +404,11 @@ export function BookingWizard({
                 mundo. Todo online.
               </p>
               <p className="animate-rise-delay-2 text-xs text-white/55 sm:text-sm">
-                {DEST_LINE}
+                {catalogState.status === "loading"
+                  ? "Cargando destinos curados…"
+                  : catalogState.status === "error"
+                    ? "No pudimos cargar el catálogo live. Reintenta en un momento."
+                    : destLine}
               </p>
             </div>
 
@@ -976,6 +1008,8 @@ export function BookingWizard({
                       programTitle={program?.title}
                       weeks={weeks}
                       pricing={pricing}
+                      catalogSource={catalogSource}
+                      catalogSourceLabel={catalogSourceLabel}
                     />
                   </div>
                 </div>
@@ -1026,6 +1060,8 @@ export function BookingWizard({
                   programTitle={program?.title}
                   weeks={weeks}
                   pricing={pricing}
+                  catalogSource={catalogSource}
+                  catalogSourceLabel={catalogSourceLabel}
                 />
               </div>
             ) : (
@@ -1145,6 +1181,8 @@ function PriceBreakdown({
   programTitle,
   weeks,
   pricing,
+  catalogSource,
+  catalogSourceLabel,
 }: {
   programTitle?: string;
   weeks: number;
@@ -1155,6 +1193,8 @@ function PriceBreakdown({
     airportTotal: number;
     total: number;
   };
+  catalogSource: string;
+  catalogSourceLabel: string;
 }) {
   return (
     <div>
@@ -1172,8 +1212,9 @@ function PriceBreakdown({
         </div>
       </div>
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        Curso: precios Edvisor ({CATALOG_SOURCE_LABEL}
-        {CATALOG_SOURCE === "fallback" ? " — fallback" : ""}). Extras MPE aparte.
+        Curso: precios Edvisor ({catalogSourceLabel}
+        {catalogSource === "fallback" ? " — fallback" : ""}). Cobro vía
+        exact-quote. Extras MPE aparte.
       </p>
     </div>
   );

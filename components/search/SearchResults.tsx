@@ -57,8 +57,8 @@ export function SearchResults({
             No hay escuelas para esta búsqueda
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Prueba otro destino desde el inicio — Berlín, La Valeta y Londres son
-            nuestros hubs destacados.
+            Prueba otro destino desde el inicio — el cotizador solo muestra
+            escuelas activadas en el catálogo live.
           </p>
         </div>
       ) : (
