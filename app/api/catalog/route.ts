@@ -12,6 +12,6 @@ export async function GET() {
     metaNote: catalog.metaNote,
     destinations: catalog.destinations,
     programs: catalog.programs.filter((p) => p.enabled),
-    schools: catalog.schools,
+    schools: catalog.schools.filter((s) => s.enabled),
   });
 }

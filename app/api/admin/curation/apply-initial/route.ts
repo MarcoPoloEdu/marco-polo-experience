@@ -8,7 +8,7 @@ import { isEdvisorApiConfigured } from "@/lib/edvisor/api";
 export const runtime = "nodejs";
 
 /**
- * Apply Felipe’s initial campus enable set (ILSC CA ×3 + Gateway St. Julians).
+ * Apply Felipe’s initial campus enable set (ILSC 54/114/115 + Gateway GSE 3846).
  * Replaces curation with only those matches — everything else off.
  */
 export async function POST(request: Request) {

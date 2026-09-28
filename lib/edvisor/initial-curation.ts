@@ -1,9 +1,7 @@
 /**
  * Felipe’s initial Experience curation set.
- * Match live Edvisor campus names after sync — enable only these; everything else off.
- * Never enable ILAC (see FORCE_DISABLED_SCHOOL_NAME_PATTERNS).
- *
- * Short courses only (Experience B2C). Known seed: ILSC Toronto campus id 114.
+ * Prefer known Edvisor campus IDs (Asesoría SoT). Enable only these adults;
+ * exclude Junior by id and name. Never enable ILAC.
  */
 
 import type { EdvisorCatalog, EdvisorSchool } from "@marco-polo/experience-edvisor";
@@ -20,12 +18,16 @@ export type InitialCampusTarget = {
   knownSchoolId?: number;
 };
 
-/** Curated campuses Felipe asked to enable first. */
+/** Junior campuses — never enable for Experience Phase A adults. */
+export const EXCLUDED_JUNIOR_SCHOOL_IDS = new Set([3167, 3171, 23941, 4839]);
+
+/** Curated adult campuses: ILSC YVR/YYZ/YUL + Gateway GSE San Gwann. */
 export const INITIAL_CAMPUS_TARGETS: InitialCampusTarget[] = [
   {
     label: "ILSC Vancouver",
     schoolNeedles: [/\bilsc\b/i],
     cityNeedles: [/vancouver/i],
+    knownSchoolId: 54,
   },
   {
     label: "ILSC Toronto",
@@ -37,11 +39,24 @@ export const INITIAL_CAMPUS_TARGETS: InitialCampusTarget[] = [
     label: "ILSC Montreal",
     schoolNeedles: [/\bilsc\b/i],
     cityNeedles: [/montr[eé]al/i],
+    knownSchoolId: 115,
   },
   {
-    label: "Gateway School of English — St. Julians",
-    schoolNeedles: [/gateway\s+school\s+of\s+english/i, /\bgateway\b/i],
-    cityNeedles: [/st\.?\s*julian/i, /saint\s*julian/i, /san\s*julian/i],
+    label: "Gateway School of English GSE — San Gwann",
+    schoolNeedles: [
+      /gateway\s+school\s+of\s+english/i,
+      /\bgateway\b/i,
+      /\bgse\b/i,
+    ],
+    cityNeedles: [
+      /san\s*gwann/i,
+      /\bgse\b/i,
+      /st\.?\s*julian/i,
+      /saint\s*julian/i,
+      /san\s*julian/i,
+      /malta/i,
+    ],
+    knownSchoolId: 3846,
   },
 ];
 
@@ -49,6 +64,15 @@ export const INITIAL_CAMPUS_TARGETS: InitialCampusTarget[] = [
 export const KNOWN_INITIAL_SCHOOL_IDS: number[] = INITIAL_CAMPUS_TARGETS.map(
   (t) => t.knownSchoolId
 ).filter((id): id is number => typeof id === "number" && id > 0);
+
+export function isJuniorSchoolId(id: string | number | null | undefined): boolean {
+  const n = typeof id === "number" ? id : Number(id);
+  return Number.isFinite(n) && EXCLUDED_JUNIOR_SCHOOL_IDS.has(n);
+}
+
+export function isJuniorCampusName(name: string): boolean {
+  return /\bjunior\b/i.test(name);
+}
 
 function schoolBlob(school: EdvisorSchool, catalog: EdvisorCatalog): string {
   const dest = catalog.destinations.find((d) => d.id === school.destinationId);
@@ -61,9 +85,19 @@ export function isForceDisabledSchool(name: string): boolean {
   return FORCE_DISABLED_SCHOOL_NAME_PATTERNS.some((re) => re.test(name));
 }
 
+function isExcludedJunior(
+  name: string,
+  edvisorProviderId?: string | number | null
+): boolean {
+  if (isJuniorSchoolId(edvisorProviderId)) return true;
+  if (isJuniorCampusName(name)) return true;
+  return false;
+}
+
 /** Match a live campus name/city blob to an initial target (pre-catalog). */
 export function matchInitialCampusBlob(blob: string): InitialCampusTarget | null {
   if (isForceDisabledSchool(blob)) return null;
+  if (isJuniorCampusName(blob)) return null;
   for (const target of INITIAL_CAMPUS_TARGETS) {
     const schoolOk = target.schoolNeedles.some((re) => re.test(blob));
     const cityOk = target.cityNeedles.some((re) => re.test(blob));
@@ -77,12 +111,13 @@ export function matchInitialCampus(
   catalog: EdvisorCatalog
 ): InitialCampusTarget | null {
   if (isForceDisabledSchool(school.name)) return null;
+  if (isExcludedJunior(school.name, school.edvisorProviderId)) return null;
   const byId = INITIAL_CAMPUS_TARGETS.find(
     (t) =>
       t.knownSchoolId != null &&
       String(t.knownSchoolId) === String(school.edvisorProviderId)
   );
-  if (byId && !isForceDisabledSchool(school.name)) return byId;
+  if (byId) return byId;
   return matchInitialCampusBlob(schoolBlob(school, catalog));
 }
 
@@ -102,7 +137,8 @@ export type InitialCurationApplyResult = {
 
 /**
  * Build curation that enables ONLY matched initial campuses (complete schools)
- * and their complete programs. All other keys omitted (= off).
+ * and ALL programs under those schools (complete not required — demo/browse).
+ * All other keys omitted (= off).
  */
 export function buildInitialCuration(
   catalog: EdvisorCatalog,
@@ -131,8 +167,9 @@ export function buildInitialCuration(
 
   let programsEnabled = 0;
   for (const program of catalog.programs) {
-    if (!program.complete) continue;
+    // Enable priced programs under enabled schools — do not require program.complete
     if (schools[program.schoolId] !== true) continue;
+    if (!(program.weeklyPriceUsd > 0)) continue;
     programs[program.id] = true;
     programsEnabled += 1;
   }
