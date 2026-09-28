@@ -80,10 +80,13 @@ type CatalogPayload = {
   services?: AdminService[];
   stats?: {
     destinationsTotal?: number;
+    destinationsEnabled?: number;
     schoolsTotal: number;
     schoolsComplete: number;
+    schoolsEnabled?: number;
     programsTotal: number;
     programsComplete: number;
+    programsEnabled?: number;
     servicesTotal?: number;
     servicesComplete?: number;
   };
