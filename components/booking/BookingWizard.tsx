@@ -18,13 +18,8 @@ import {
   Shield,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { LanguageCards, PassportGrid } from "@/components/booking/PassportPicker";
+import { ProjectStory } from "@/components/landing/ProjectStory";
 import {
   ACCOMMODATIONS,
   AIRPORT_OPTIONS,
@@ -50,14 +45,6 @@ import {
   formatUsd,
 } from "@/lib/booking/pricing";
 import { cn } from "@/lib/utils";
-
-const LANGUAGE_CHIPS: LanguageCode[] = [
-  "english",
-  "french",
-  "german",
-  "italian",
-  "portuguese",
-];
 
 const STEPS = [
   { id: 1, label: "Pasaporte" },
@@ -135,13 +122,8 @@ export function BookingWizard({
     if (match) setDestinationCountry(match.country);
   }, [initialDestinationId, catalogDestinations]);
 
-  const nationalityItems = useMemo(
-    () =>
-      Object.fromEntries(
-        NATIONALITIES.map((n) => [n.code, `${n.flag} ${n.label}`])
-      ),
-    []
-  );
+  const nationalityLabel = NATIONALITIES.find((n) => n.code === nationality)?.label;
+  const languageLabel = LANGUAGES.find((l) => l.code === language)?.label;
 
   const currentStepMeta = STEPS.find((s) => s.id === step) ?? STEPS[0];
   const endDate = useMemo(() => addWeeks(startDate, weeks), [startDate, weeks]);
@@ -349,7 +331,10 @@ export function BookingWizard({
   return (
     <div className="relative min-h-[100dvh] overflow-x-hidden bg-ink text-white">
       <div
-        className="pointer-events-none absolute inset-0"
+        className={cn(
+          "pointer-events-none absolute inset-0 overflow-hidden",
+          step === 1 && "bottom-auto h-[82rem]"
+        )}
         aria-hidden
       >
         <div
@@ -383,17 +368,14 @@ export function BookingWizard({
 
         {/* STEP 1 — brand-first hero + search */}
         {step === 1 && (
-          <section className="flex min-h-0 flex-col justify-end gap-4 pb-2 pt-6 sm:min-h-[78dvh] sm:gap-7 sm:pb-6 sm:pt-10">
+          <>
+          <section className="flex min-h-0 flex-col justify-end gap-5 pb-2 pt-8 sm:min-h-[78dvh] sm:gap-8 sm:pb-6 sm:pt-12">
             <div className="max-w-3xl space-y-3 sm:space-y-5">
-              <div className="animate-rise space-y-1">
-                <p className="font-heading text-lg font-semibold tracking-tight text-white sm:text-xl">
-                  Marco Polo Experience
-                </p>
-                <p className="text-xs font-medium text-white/60 sm:text-sm">
-                  by Marco Polo Education
-                </p>
-              </div>
-              <h1 className="animate-rise-delay-1 font-heading text-[1.85rem] leading-[1.12] font-semibold tracking-tight sm:text-5xl md:text-6xl">
+              <p className="animate-rise inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-mint uppercase">
+                <span className="size-1.5 rounded-full bg-mint" />
+                Cursos cortos de idiomas en el exterior
+              </p>
+              <h1 className="animate-rise-delay-1 font-heading text-[2.1rem] leading-[1.05] font-bold tracking-tight sm:text-6xl md:text-7xl">
                 Vive un idioma.{" "}
                 <span className="bg-gradient-to-r from-mint via-sky-300 to-indigo bg-clip-text text-transparent">
                   No solo lo estudies.
@@ -412,82 +394,44 @@ export function BookingWizard({
               </p>
             </div>
 
-            <div className="animate-rise-delay-2 space-y-3 rounded-[1.35rem] border border-white/15 bg-white/10 p-3.5 backdrop-blur-xl sm:space-y-4 sm:rounded-[1.5rem] sm:p-5">
-              <div className="space-y-1">
-                <p className="text-xs text-white/65 sm:text-sm">
-                  Te mostraremos destinos y cursos compatibles con tu pasaporte.
-                </p>
-                <h2 className="font-heading text-base font-semibold text-white sm:text-xl">
-                  ¿Dónde quieres vivir tu próxima experiencia?
+            <div
+              id="empezar"
+              className="animate-rise-delay-2 scroll-mt-6 space-y-5 rounded-[1.5rem] border border-white/15 bg-ink/40 p-3.5 shadow-[0_40px_120px_-50px_rgba(0,0,0,0.9)] backdrop-blur-2xl sm:space-y-7 sm:rounded-[2rem] sm:p-7"
+            >
+              <div className="space-y-1.5">
+                <h2 className="font-heading text-2xl leading-tight font-bold tracking-tight text-white sm:text-4xl">
+                  ¿De dónde eres?
                 </h2>
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="nationality-select"
-                  className="text-xs font-medium text-white/70"
-                >
-                  País de pasaporte
-                </label>
-                <Select
-                  value={nationality || undefined}
-                  onValueChange={(v) => {
-                    if (v) {
-                      setNationality(v as NationalityCode);
-                      setDestinationCountry("");
-                      setDestinationId("");
-                      setProgramId("");
-                    }
-                  }}
-                  items={nationalityItems}
-                >
-                  <SelectTrigger
-                    id="nationality-select"
-                    className="h-11 min-h-11 w-full border-white/20 bg-white/95 text-base text-ink sm:h-12"
-                  >
-                    <SelectValue placeholder="Selecciona tu país" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {NATIONALITIES.map((n) => (
-                      <SelectItem key={n.code} value={n.code}>
-                        {n.flag} {n.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-white/70">
-                  Idioma que quieres aprender
+                <p className="text-sm text-white/65 sm:text-base">
+                  Elige tu pasaporte y el idioma: te mostramos solo destinos y cursos
+                  compatibles contigo.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {LANGUAGE_CHIPS.map((code) => {
-                    const l = LANGUAGES.find((x) => x.code === code);
-                    if (!l) return null;
-                    return (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => {
-                          setLanguage(l.code);
-                          setDestinationCountry("");
-                          setDestinationId("");
-                          setProgramId("");
-                          setProgramId("");
-                        }}
-                        className={cn(
-                          "min-h-11 rounded-full border px-3.5 py-2 text-sm font-semibold transition active:scale-[0.98]",
-                          language === l.code
-                            ? "border-transparent bg-indigo text-white"
-                            : "border-white/20 bg-white/5 text-white/85 hover:bg-white/10"
-                        )}
-                      >
-                        {l.label}
-                      </button>
-                    );
-                  })}
-                </div>
+              </div>
+
+              <div className="space-y-2.5">
+                <StepLabel index={1} title="Tu pasaporte" hint={nationalityLabel} />
+                <PassportGrid
+                  value={nationality}
+                  onChange={(code) => {
+                    setNationality(code);
+                    setDestinationCountry("");
+                    setDestinationId("");
+                    setProgramId("");
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2.5">
+                <StepLabel index={2} title="El idioma que quieres vivir" hint={languageLabel} />
+                <LanguageCards
+                  value={language}
+                  onChange={(code) => {
+                    setLanguage(code);
+                    setDestinationCountry("");
+                    setDestinationId("");
+                    setProgramId("");
+                  }}
+                />
               </div>
 
               <div className="space-y-2 pt-0.5">
@@ -497,18 +441,24 @@ export function BookingWizard({
                   onClick={submitSearch}
                   className={cn(
                     buttonVariants({ size: "lg" }),
-                    "h-12 min-h-12 w-full gap-2 border-0 text-base text-ink gradient-cta disabled:opacity-40"
+                    "h-14 min-h-14 w-full gap-2 rounded-2xl border-0 font-heading text-lg font-bold text-ink gradient-cta disabled:opacity-40"
                   )}
                 >
                   Elegir destino
-                  <ArrowRight className="size-4" />
+                  <ArrowRight className="size-5" />
                 </button>
                 <p className="text-center text-[11px] leading-snug text-white/50 sm:text-xs">
-                  País y ciudad primero · Precios en la cotización · Reserva segura
+                  {!nationality
+                    ? "Empieza por tu pasaporte"
+                    : !language
+                      ? `${nationalityLabel} ✓ · Ahora elige el idioma`
+                      : `${nationalityLabel} · ${languageLabel} — listo para elegir destino`}
                 </p>
               </div>
             </div>
           </section>
+          <ProjectStory />
+          </>
         )}
 
         {step > 1 && (
@@ -1071,6 +1021,30 @@ export function BookingWizard({
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function StepLabel({
+  index,
+  title,
+  hint,
+}: {
+  index: number;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <p className="flex items-center gap-2.5 text-sm font-semibold text-white sm:text-base">
+        <span className="flex size-6 items-center justify-center rounded-full bg-white/10 font-heading text-xs font-bold text-mint ring-1 ring-white/20">
+          {index}
+        </span>
+        {title}
+      </p>
+      {hint && (
+        <span className="truncate text-xs font-medium text-mint">{hint}</span>
       )}
     </div>
   );
