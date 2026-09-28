@@ -90,8 +90,18 @@ async function assertPurchasable(programId: string, schoolId: string): Promise<
   | { ok: false; reason: string }
 > {
   const curation = await getCurationState();
-  const schoolEnabled = curation.schools[schoolId] === true;
-  const programEnabled = curation.programs[programId] === true;
+  // Curation keys are Experience ids (`edv-school-54`); also accept bare Edvisor ids (`54`).
+  const schoolKeys = new Set(
+    [schoolId, `edv-school-${schoolId}`, schoolId.replace(/^edv-school-/, "")].filter(
+      Boolean
+    )
+  );
+  const schoolEnabled = [...schoolKeys].some((k) => curation.schools[k] === true);
+  const programEnabled =
+    curation.programs[programId] === true ||
+    curation.programs[`edv-offering-${programId}`] === true ||
+    (programId.startsWith("edv-offering-") &&
+      curation.programs[programId.replace(/^edv-offering-/, "")] === true);
   if (!schoolEnabled || !programEnabled) {
     return {
       ok: false,
