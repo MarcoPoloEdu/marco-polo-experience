@@ -1,19 +1,22 @@
-import { SearchResults } from "@/components/search/SearchResults";
-import { SiteFooter, SiteHeader } from "@/components/layout/SiteChrome";
-import { filterSchools } from "@/lib/data/schools";
-import { VISA_DISCLAIMER } from "@/lib/data/visa-rules";
+import { redirect } from "next/navigation";
 
-export default function SearchPage() {
-  const schools = filterSchools({});
-
-  return (
-    <main className="flex-1">
-      <SiteHeader />
-      <SearchResults
-        schools={schools}
-        disclaimer={VISA_DISCLAIMER}
-      />
-      <SiteFooter />
-    </main>
-  );
+/**
+ * Legacy /search used a static Berlin/Valletta/London school list.
+ * Cotizador browse is the BookingWizard on `/` fed by live `/api/catalog`.
+ */
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value) qs.set(key, value);
+  }
+  // Keep passport/language if present; destination slugs from the old demo
+  // list are not valid live ids — drop them so the wizard starts clean.
+  qs.delete("destination");
+  const suffix = qs.toString();
+  redirect(suffix ? `/?${suffix}` : "/");
 }
