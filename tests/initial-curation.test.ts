@@ -128,6 +128,18 @@ describe("initial curation set", () => {
     expect(matchInitialCampus(gw, sampleCatalog)?.label).toContain("Gateway");
   });
 
+  it("matches ILSC Toronto by known campus id 114", () => {
+    const toronto: (typeof sampleCatalog.schools)[number] = {
+      id: "edv-school-114",
+      name: "ILSC Language Schools",
+      email: "t@x.com",
+      destinationId: "edv-ca-vancouver",
+      complete: true,
+      edvisorProviderId: "114",
+    };
+    expect(matchInitialCampus(toronto, sampleCatalog)?.label).toContain("ILSC Toronto");
+  });
+
   it("buildInitialCuration enables only matched complete schools + their programs", () => {
     const result = buildInitialCuration(sampleCatalog, "admin@marcopoloeducation.com");
     expect(result.curation.schools["edv-school-1"]).toBe(true);

@@ -12,7 +12,8 @@ export const maxDuration = 120;
  * Server-side Edvisor inventory sync (no Firebase admin session).
  * Auth: Authorization: Bearer CRON_SECRET
  *
- * Optional: ?applyInitial=1 — enable only ILSC CA + Gateway St. Julians after sync.
+ * Phase A: scoped short-course pull (ILSC CA + Gateway St. Julians only).
+ * Optional: ?applyInitial=1 — enable only those campuses after sync.
  */
 export async function POST(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
